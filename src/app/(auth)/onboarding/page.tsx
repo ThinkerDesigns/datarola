@@ -94,6 +94,7 @@ function WelcomeStep({ onNext, user }: { onNext: () => void; user: any }) {
 }
 
 function ConnectStep({ onBack }: { onBack: () => void }) {
+  const [selectedType, setSelectedType] = useState<string>('');
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0e1a] px-4">
       <div className="w-full max-w-3xl">
@@ -107,7 +108,7 @@ function ConnectStep({ onBack }: { onBack: () => void }) {
           {connectorCards.map((c) => (
             <button
               key={c.type}
-              onClick={() => { setModalType(c.type); }}
+              onClick={() => setSelectedType(c.type)}
               className="flex items-center gap-4 rounded-xl border border-white/5 bg-white/[0.02] px-5 py-5 text-left transition-all hover:border-brand-500/30 hover:bg-brand-500/5"
             >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-brand-600/15">
@@ -122,13 +123,13 @@ function ConnectStep({ onBack }: { onBack: () => void }) {
         </div>
       </div>
 
-      {modalType && (
+      {selectedType && (
         <ConnectSourceModal
-          initialType={modalType as any}
-          onClose={() => setShowModal(false)}
+          initialType={selectedType as any}
+          onClose={() => setSelectedType('')}
           onConnected={() => {
-            setShowModal(false);
-            window.location.href = '/app'; // Go to dashboard after connecting
+            setSelectedType('');
+            window.location.href = '/app';
           }}
         />
       )}

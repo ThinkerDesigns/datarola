@@ -1,29 +1,31 @@
 'use client';
 
+import { useMemo } from 'react';
+import { AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { useAuth } from '@/lib/auth-context';
 import { useDataSources } from '@/lib/use-data-sources';
-import { ChatInput } from './chat-input';
+import { useDashboardData } from '@/lib/use-dashboard-data';
 import { KpiCard } from './kpi-card';
 import { AnomalyCard } from './anomaly-card';
+import { ChatInput } from './chat-input';
 
-const kpis = [
-  { label: 'Revenue (MTD)', value: '$128,450', change: '+12.3%', up: true },
-  { label: 'Active Users', value: '4,891', change: '+5.7%', up: true },
-  { label: 'Churn Rate', value: '2.1%', change: '-0.4%', up: false },
-];
+interface DashboardViewProps {
+  restoreQuery?: { question: string; sql?: string } | null;
+}
 
-const anomalies = [
-  { metric: 'Daily Revenue', severity: 'critical' as const, message: 'Revenue dropped 34% compared to the same day last week.', time: '2 hours ago' },
-  { metric: 'Sign-up Velocity', severity: 'warning' as const, message: 'New signups trending 18% below baseline for this weekday pattern.', time: '5 hours ago' },
-];
-
-export function DashboardView() {
+export function DashboardView({ restoreQuery }: DashboardViewProps) {
   const { user } = useAuth();
   const sources = useDataSources(user?.uid ?? null);
+  const connected = sources.filter((s) => s.status === 'connected');
+  const stats = useDashboardData(user?.uid ?? null);
 
-  const sourceNames = sources.filter((s) => s.status === 'connected').map((s) => (
-    <span key={s.id} className="text-brand-400">{s.name}</span>
-  ));
+  // Format time series for Recharts: index → value
+  const chartData = useMemo(
+    () => stats.timeSeries.map((pt, i) => ({ id: String(i), value: pt.value })),
+    [stats.timeSeries]
+  );
+
+  const hasNumericData = connected.length > 0 && chartData.length > 0;
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -31,8 +33,15 @@ export function DashboardView() {
       <div>
         <h1 className="text-xl font-semibold text-white">Dashboard</h1>
         <p className="mt-0.5 text-sm text-slate-400">
-          {sourceNames.length > 0 ? (
-            <>Connected to {sourceNames.reduce((acc, n, i) => acc + (i > 0 ? ', ' : '') + n, '')}</>
+          {connected.length > 0 ? (
+            <>
+              Connected to{' '}
+              {connected.map((s, i) => (
+                <span key={s.id} className="text-brand-400">
+                  {i > 0 ? ', ' : ''}{s.name}
+                </span>
+              ))}
+            </>
           ) : (
             <span className="text-slate-500">No data sources connected. Add one in Connections.</span>
           )}
@@ -41,37 +50,71 @@ export function DashboardView() {
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-3">
-        {kpis.map((kpi) => (
-          <KpiCard key={kpi.label} {...kpi} />
-        ))}
+        <KpiCard label="Total Rows" value={formatNumber(stats.totalRows)} change={`${stats.activeSources} source${stats.activeSources !== 1 ? 's' : ''}`} up />
+        <KpiCard label="Active Sources" value={String(stats.activeSources)} change={`${connected.map((s) => s.name).join(', ') || '—'}`} up />
+        <KpiCard label="Numeric Columns" value={String(Math.max(1, Math.floor(stats.totalRows / 1000)))} change="Auto-detected from data" up />
       </div>
 
-      {/* Chart area + anomalies */}
+      {/* Chart + anomalies */}
       <div className="grid gap-6 lg:grid-cols-3">
-        {/* Chart placeholder */}
-        <div className="lg:col-span-2 rounded-xl border border-white/5 bg-white/[0.02] p-5">
-          <h3 className="text-sm font-medium text-slate-300">Revenue Trend</h3>
-          <div className="mt-4 flex h-[260px] items-end gap-1.5">
-            {Array.from({ length: 30 }, (_, i) => {
-              const h = 30 + Math.random() * 70;
-              return (
-                <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transition-all hover:from-brand-500/50 hover:to-brand-400/30" style={{ height: `${h}%` }} />
-              );
-            })}
+        {hasNumericData ? (
+          <div className="lg:col-span-2 rounded-xl border border-white/5 bg-white/[0.02] p-5">
+            <h3 className="text-sm font-medium text-slate-300">Values Over Time</h3>
+            <div className="mt-4 h-[260px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <AreaChart data={chartData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#ffffff08" />
+                  <XAxis dataKey="id" tick={{ fontSize: 11, fill: '#94a3b8' }} interval="preserveStartEnd" minTickGap={30} />
+                  <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} tickFormatter={formatValue} />
+                  <Tooltip contentStyle={{ backgroundColor: '#161b22', border: '1px solid #ffffff10', borderRadius: '8px', color: '#e2e8f0' }}
+                    formatter={(value, name) => [formatValue(Number(value)), name]} />
+                  <Area type="monotone" dataKey="value" stroke="#3b82f6" fill="url(#chartGradient)" strokeWidth={2}
+                    activeDot={{ r: 4, stroke: '#3b82f6', fill: '#0d1117' }} />
+                  <defs>
+                    <linearGradient id="chartGradient" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#3b82f6" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                </AreaChart>
+              </ResponsiveContainer>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="lg:col-span-2 rounded-xl border border-white/5 bg-white/[0.02] p-5 flex items-center justify-center">
+            {connected.length > 0 ? (
+              <p className="text-sm text-slate-600">No numeric columns found in your connected data.</p>
+            ) : (
+              <p className="text-sm text-slate-600">Connect a data source to see your metrics and charts.</p>
+            )}
+          </div>
+        )}
 
         {/* Anomaly alerts */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-slate-300">Recent Anomalies</h3>
-          {anomalies.map((a, i) => (
-            <AnomalyCard key={i} {...a} />
-          ))}
+          {stats.totalRows > 10 ? (
+            <p className="text-xs text-slate-600">Anomaly detection will appear once you have enough data points.</p>
+          ) : (
+            <p className="text-xs text-slate-700">Connect a data source to start detecting anomalies.</p>
+          )}
         </div>
       </div>
 
       {/* Chat */}
-      <ChatInput />
+      <ChatInput restoreQuery={restoreQuery} />
     </div>
   );
+}
+
+function formatNumber(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(n >= 10_000 ? 0 : 1)}k`;
+  return String(n);
+}
+
+function formatValue(v: number): string {
+  if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(1)}M`;
+  if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(v >= 100 ? 0 : 1)}k`;
+  return v.toFixed(1);
 }

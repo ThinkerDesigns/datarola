@@ -1,8 +1,6 @@
 'use client';
 
-import Link from 'next/link';
-
-type View = 'dashboard' | 'connections' | 'alerts' | 'settings';
+type View = 'dashboard' | 'connections' | 'alerts' | 'saved-queries' | 'settings';
 
 interface SidebarProps {
   activeView: View;
@@ -11,6 +9,7 @@ interface SidebarProps {
 
 const navItems: { id: View; label: string; icon: string }[] = [
   { id: 'dashboard', label: 'Dashboard', icon: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z' },
+  { id: 'saved-queries', label: 'Saved Queries', icon: 'M8 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2M8 4l4 4 4-4M12 8v8' },
   { id: 'connections', label: 'Connections', icon: 'M6 8a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v8a4 4 0 0 1-4 4h-4a4 4 0 0 1-4-4V8Z' },
   { id: 'alerts', label: 'Alerts', icon: 'M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9' },
   { id: 'settings', label: 'Settings', icon: 'M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6z' },
@@ -18,7 +17,7 @@ const navItems: { id: View; label: string; icon: string }[] = [
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
   return (
-    <aside className="flex w-56 flex-col border-r border-white/5 bg-[#091118] py-5">
+    <aside className="flex w-56 shrink-0 flex-col border-r border-white/5 bg-[#091118] py-5">
       {/* Logo */}
       <div className="px-5 mb-4 flex items-center gap-2.5">
         <svg width="26" height="26" viewBox="0 0 28 28" fill="none">

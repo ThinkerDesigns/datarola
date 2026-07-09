@@ -1,19 +1,21 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { CONNECTORS, type ConnectorDef } from '@/lib/connectors';
 import { connectDataSource, uploadCSV, syncSource as doSyncSource } from '@/lib/connectors/server-actions';
+import { generateAuthUrl } from '@/lib/google-oauth';
 import type { ConnectorType } from '@/lib/schema';
 
 interface ConnectSourceModalProps {
   onClose: () => void;
   onConnected: (id: string) => void;
+  initialType?: ConnectorType;
 }
 
-export function ConnectSourceModal({ onClose, onConnected }: ConnectSourceModalProps) {
-  const [step, setStep] = useState<'picker' | 'config'>('picker');
-  const [selectedType, setSelectedType] = useState<ConnectorType | null>(null);
+export function ConnectSourceModal({ onClose, onConnected, initialType }: ConnectSourceModalProps) {
+  const [step, setStep] = useState<'picker' | 'config'>(initialType ? 'config' : 'picker');
+  const [selectedType, setSelectedType] = useState<ConnectorType | null>(initialType ?? null);
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -59,6 +61,35 @@ export function ConnectSourceModal({ onClose, onConnected }: ConnectSourceModalP
       setLoading(false);
     }
   };
+
+  const handleGoogleOAuth = async () => {
+    if (!user) return;
+    setLoading(true);
+    try {
+      const { authUrl } = await generateAuthUrl(user.uid);
+      // Store that we're in OAuth mode so the callback knows to create a data source
+      window.sessionStorage.setItem('oauth-connect', user.uid);
+      window.location.href = authUrl;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'OAuth failed';
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // After OAuth callback, auto-fill spreadsheet ID if it came from the callback
+  useEffect(() => {
+    const info = window.sessionStorage.getItem('oauth-connect-info');
+    if (info) {
+      try {
+        const parsed = JSON.parse(info) as { spreadsheetId: string; name: string };
+        setFields((prev) => ({ ...prev, spreadsheetId: parsed.spreadsheetId }));
+        if (parsed.name) setSelectedType('google-sheets'); // re-trigger config rendering
+        window.sessionStorage.removeItem('oauth-connect-info');
+      } catch { /* ignore */ }
+    }
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
@@ -116,12 +147,24 @@ export function ConnectSourceModal({ onClose, onConnected }: ConnectSourceModalP
               </div>
             ))}
 
-            {/* Google Sheets range selector */}
-            {selectedType === 'google-sheets' && (
+            {/* Google Sheets range selector (only set after OAuth) */}
+            {selectedType === 'google-sheets' && fields.spreadsheetId ? (
               <input type="text" value={fields.range ?? ''}
                 onChange={(e) => setFields({ ...fields, range: e.target.value })}
                 placeholder={`Range (default: ${def.selector || 'A1:Z10000'})`}
                 className="w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50 placeholder:text-slate-600" />
+            ) : null}
+
+            {/* Google Sheets OAuth button */}
+            {selectedType === 'google-sheets' && !fields.accessToken && (
+              <div className="rounded-lg border border-dashed border-slate-700 bg-white/[0.02] px-4 py-6 text-center">
+                <button onClick={handleGoogleOAuth}
+                  disabled={loading}
+                  className="inline-flex items-center gap-2 rounded-lg bg-white/90 px-5 py-2.5 text-sm font-medium text-slate-800 hover:bg-white transition-colors disabled:opacity-50">
+                  <svg width="18" height="18" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg>
+                  Connect with Google
+                </button>
+              </div>
             )}
 
             {/* Action buttons */}

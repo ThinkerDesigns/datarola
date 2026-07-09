@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useDataSources } from '@/lib/use-data-sources';
 import { ConnectSourceModal } from '@/components/connect-source-modal';
@@ -31,8 +31,20 @@ const statusColors = {
 
 export function ConnectionsView() {
   const [showModal, setShowModal] = useState(false);
+  const [oauthSheetId, setOauthSheetId] = useState<string | null>(null);
+  const [oauthName, setOauthName] = useState<string | null>(null);
   const { user } = useAuth();
   const dataSources = useDataSources(user?.uid ?? null);
+
+  // Detect OAuth callback params
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('oauth') === 'success') {
+      setOauthSheetId(params.get('spreadsheetId'));
+      setOauthName(params.get('name'));
+      window.history.replaceState({}, '', '/connections'); // clean URL
+    }
+  }, []);
 
   // Merge real sources with mock data (mock data fills gaps in dev)
   const allConnections: Connection[] = [
@@ -62,6 +74,19 @@ export function ConnectionsView() {
           + Connect Source
         </button>
       </div>
+
+      {/* OAuth success banner */}
+      {oauthSheetId && (
+        <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/8 px-5 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" className="text-emerald-400 shrink-0"><path d="M20 6 9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>
+            <p className="text-sm text-emerald-300">
+              Connected to {oauthName ? `"${oauthName}"` : 'Google Sheet'} — sync will start shortly.
+            </p>
+          </div>
+          <button onClick={() => setOauthSheetId(null)} className="text-xs text-emerald-400/60 hover:text-emerald-300">Dismiss</button>
+        </div>
+      )}
 
       {/* Connected sources */}
       {allConnections.length > 0 && (

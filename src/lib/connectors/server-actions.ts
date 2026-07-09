@@ -6,6 +6,7 @@ import type { DataSource } from '@/lib/schema';
 import { doc, setDoc, deleteDoc, updateDoc, collection, addDoc, writeBatch, getDocs, query, where, limit } from 'firebase/firestore';
 import { syncGoogleSheet } from './google-sheets';
 import { parseCSVRaw } from './csv';
+import { refreshAccessToken } from '@/lib/google-oauth';
 
 // Guard: all functions need db to be initialized
 const _db = db ?? (() => { throw new Error('Firebase not configured'); })();
@@ -28,11 +29,20 @@ export async function syncSource(uid: string, dsId: string, providerConfig: Reco
     let rows: (string | number | boolean | null)[][] = [];
 
     if (providerConfig.type === 'google-sheets') {
+      let accessToken = providerConfig.accessToken;
+      // Try to refresh if no access token provided (e.g. stored tokens)
+      if (!accessToken) {
+        try {
+          accessToken = await refreshAccessToken(uid);
+        } catch { /* fall through — will error at Google API */ }
+      }
+      if (!accessToken) throw new Error('Missing access token for Google Sheets.');
+
       const sheetsResult = await syncGoogleSheet({
         uid,
         spreadsheetId: providerConfig.spreadsheetId!,
         range: providerConfig.range || 'A1:Z10000',
-        accessToken: providerConfig.accessToken!,
+        accessToken,
       });
       columns = sheetsResult.columns;
       rows = sheetsResult.rows;
