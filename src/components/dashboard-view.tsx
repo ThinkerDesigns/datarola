@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/lib/auth-context';
+import { useDataSources } from '@/lib/use-data-sources';
 import { ChatInput } from './chat-input';
 import { KpiCard } from './kpi-card';
 import { AnomalyCard } from './anomaly-card';
@@ -11,29 +13,29 @@ const kpis = [
 ];
 
 const anomalies = [
-  {
-    metric: 'Daily Revenue',
-    severity: 'critical' as const,
-    message: 'Revenue dropped 34% compared to the same day last week. Most affected category: subscriptions.',
-    time: '2 hours ago',
-  },
-  {
-    metric: 'Sign-up Velocity',
-    severity: 'warning' as const,
-    message: 'New signups trending 18% below baseline for this weekday pattern.',
-    time: '5 hours ago',
-  },
+  { metric: 'Daily Revenue', severity: 'critical' as const, message: 'Revenue dropped 34% compared to the same day last week.', time: '2 hours ago' },
+  { metric: 'Sign-up Velocity', severity: 'warning' as const, message: 'New signups trending 18% below baseline for this weekday pattern.', time: '5 hours ago' },
 ];
 
 export function DashboardView() {
+  const { user } = useAuth();
+  const sources = useDataSources(user?.uid ?? null);
+
+  const sourceNames = sources.filter((s) => s.status === 'connected').map((s) => (
+    <span key={s.id} className="text-brand-400">{s.name}</span>
+  ));
+
   return (
     <div className="space-y-6 max-w-6xl">
       {/* Header */}
       <div>
         <h1 className="text-xl font-semibold text-white">Dashboard</h1>
         <p className="mt-0.5 text-sm text-slate-400">
-          Connected to <span className="text-brand-400">Google Sheets — Q2 Revenue</span> and{' '}
-          <span className="text-brand-400">BigQuery — Analytics</span>
+          {sourceNames.length > 0 ? (
+            <>Connected to {sourceNames.reduce((acc, n, i) => acc + (i > 0 ? ', ' : '') + n, '')}</>
+          ) : (
+            <span className="text-slate-500">No data sources connected. Add one in Connections.</span>
+          )}
         </p>
       </div>
 
@@ -53,11 +55,7 @@ export function DashboardView() {
             {Array.from({ length: 30 }, (_, i) => {
               const h = 30 + Math.random() * 70;
               return (
-                <div
-                  key={i}
-                  className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transition-all hover:from-brand-500/50 hover:to-brand-400/30"
-                  style={{ height: `${h}%` }}
-                />
+                <div key={i} className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transition-all hover:from-brand-500/50 hover:to-brand-400/30" style={{ height: `${h}%` }} />
               );
             })}
           </div>

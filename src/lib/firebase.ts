@@ -1,11 +1,13 @@
-// ponytail: minimal Firebase init — auth (email/password + Google) + Firestore only
+// ponytail: minimal Firebase init — auth (email/password + Google) + Firestore only.
+// Must only run in the browser — SSR has no localStorage/window.
+
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
 const env = (typeof process !== 'undefined' && process.env)
   ? process.env
-  : (typeof globalThis !== 'undefined' && (globalThis as any).process?.env)
+  : typeof globalThis !== 'undefined' && (globalThis as any).process?.env
     ? (globalThis as any).process.env
     : {};
 
@@ -24,15 +26,24 @@ for (const key of [
 }
 
 const hasAllKeys = Object.values(firebaseConfig).every((v) => v.length > 0);
+// Guard: only init in browser where localStorage/window exist
+const isBrowser = typeof window !== 'undefined';
 
-export const app = hasAllKeys && getApps().length === 0
+export const app = hasAllKeys && isBrowser && getApps().length === 0
   ? initializeApp(firebaseConfig)
   : (getApps()[0] ?? null);
 
-export const auth = app ? getAuth(app) : null;
-export const db = app ? getFirestore(app) : null;
+export let auth: ReturnType<typeof getAuth> | null = null;
+export let db: ReturnType<typeof getFirestore> | null = null;
 
-if (auth) {
-  setPersistence(auth, browserLocalPersistence).catch(() => {});
+if (isBrowser && app) {
+  try {
+    auth = getAuth(app);
+    db = getFirestore(app);
+    setPersistence(auth, browserLocalPersistence).catch(() => {});
+  } catch {
+    // If Firebase init fails (bad API key, network issue), fall back to mock auth
+    auth = null;
+    db = null;
+  }
 }
-

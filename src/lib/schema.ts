@@ -36,5 +36,6 @@ export interface QueryResult {
   sql?: string;          // generated SQL (for audit)
   columns: string[];
   values: (string | number | boolean | null)[][];
+  rowCount: number;
   createdAt: number;
 }

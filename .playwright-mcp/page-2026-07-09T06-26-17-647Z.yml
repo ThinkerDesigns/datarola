@@ -1,0 +1,16 @@
+- generic [ref=f3e3]:
+  - generic [ref=f3e4]:
+    - heading "Create your account" [level=1] [ref=f3e5]
+    - paragraph [ref=f3e6]: Start asking questions about your data.
+  - button "Continue with Google" [ref=f3e7] [cursor=pointer]:
+    - img [ref=f3e8]
+    - text: Continue with Google
+  - generic [ref=f3e15]: or
+  - generic [ref=f3e17]:
+    - textbox "Email" [ref=f3e18]
+    - textbox "Password (min 6 chars)" [ref=f3e19]
+    - button "Create account" [ref=f3e20] [cursor=pointer]
+  - paragraph [ref=f3e21]:
+    - text: Already have an account?
+    - link "Sign in" [ref=f3e22] [cursor=pointer]:
+      - /url: /sign-in
