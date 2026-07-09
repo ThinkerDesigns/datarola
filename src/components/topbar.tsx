@@ -1,11 +1,17 @@
 'use client';
 
+import { useAuth } from '@/lib/auth-context';
+
 interface TopBarProps {
   modelProvider: 'ollama' | 'anthropic';
   onModelToggle: () => void;
 }
 
 export function TopBar({ modelProvider, onModelToggle }: TopBarProps) {
+  const { user, signOut } = useAuth();
+  const initials = user?.displayName
+    ? user.displayName.split(/[\s.]+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2)
+    : (user?.email?.slice(0, 2)?.toUpperCase() ?? 'U');
   return (
     <header className="flex items-center justify-between border-b border-white/5 bg-[#0d1117] px-6 py-3">
       {/* Model provider toggle */}
@@ -35,10 +41,20 @@ export function TopBar({ modelProvider, onModelToggle }: TopBarProps) {
           <span>7 / 20 queries used</span>
         </div>
 
-        {/* New connection button */}
-        <button className="rounded-lg bg-brand-600 px-3.5 py-1.5 text-xs font-medium text-white hover:bg-brand-500">
-          + New Query
-        </button>
+        {/* User avatar + sign out */}
+        {user && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => signOut()}
+              className="text-[11px] text-slate-600 hover:text-white transition-colors"
+            >
+              Sign out
+            </button>
+            <div className="h-7 w-7 rounded-full bg-brand-600/30 text-xs font-medium text-brand-400 flex items-center justify-center border border-brand-500/20">
+              {initials}
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

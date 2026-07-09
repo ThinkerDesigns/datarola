@@ -25,11 +25,11 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href="/app" className="hidden rounded-lg px-4 py-2 text-sm text-slate-300 transition-colors hover:text-white md:block">
+          <Link href="/sign-in" className="hidden rounded-lg px-4 py-2 text-sm text-slate-300 transition-colors hover:text-white md:block">
             Sign in
           </Link>
           <Link
-            href="/app"
+            href="/sign-up"
             className="rounded-lg bg-brand-600 px-4 py-2 text-sm font-medium text-white transition-all hover:bg-brand-500"
           >
             Get Started
