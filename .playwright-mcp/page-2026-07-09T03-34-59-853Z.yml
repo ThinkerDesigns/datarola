@@ -1,0 +1,219 @@
+- generic [ref=e2]:
+  - navigation [ref=e3]:
+    - generic [ref=e4]:
+      - link "DataRola" [ref=e5] [cursor=pointer]:
+        - /url: /
+        - img [ref=e6]
+        - text: DataRola
+      - generic [ref=e9]:
+        - link "How it works" [ref=e10] [cursor=pointer]:
+          - /url: "#how-it-works"
+        - link "Features" [ref=e11] [cursor=pointer]:
+          - /url: "#features"
+        - link "Pricing" [ref=e12] [cursor=pointer]:
+          - /url: "#pricing"
+      - generic [ref=e13]:
+        - link "Sign in" [ref=e14] [cursor=pointer]:
+          - /url: /app
+        - link "Get Started" [ref=e15] [cursor=pointer]:
+          - /url: /app
+  - main [ref=e16]:
+    - generic [ref=e18]:
+      - generic [ref=e19]: Now in private beta — connect your first data source in 60 seconds
+      - heading "Your team's data analyst, running on AI." [level=1] [ref=e23]:
+        - text: Your team's data analyst,
+        - text: running on AI.
+      - paragraph [ref=e24]: Connect your spreadsheets, databases, and warehouses. Ask business questions in plain English. Get instant answers, charts, and proactive anomaly alerts — no SQL required.
+      - generic [ref=e25]:
+        - link "Start for free →" [ref=e26] [cursor=pointer]:
+          - /url: /app
+        - link "See how it works" [ref=e27] [cursor=pointer]:
+          - /url: "#how-it-works"
+      - paragraph [ref=e28]: Works with your tools
+      - generic [ref=e29]:
+        - generic [ref=e30]: Google Sheets
+        - generic [ref=e31]: Excel
+        - generic [ref=e32]: CSV
+        - generic [ref=e33]: BigQuery
+        - generic [ref=e34]: Snowflake
+        - generic [ref=e35]: PostgreSQL
+        - generic [ref=e36]: MySQL
+        - generic [ref=e37]: Airtable
+      - generic [ref=e44]: app.datarola.com/dashboard
+    - generic [ref=e67]:
+      - generic [ref=e68]:
+        - heading "Three steps to your first insight" [level=2] [ref=e69]
+        - paragraph [ref=e70]: From connected data to actionable answer in under a minute.
+      - generic [ref=e71]:
+        - generic [ref=e72]:
+          - generic [ref=e73]: "1"
+          - img [ref=e75]
+          - heading "Connect your data" [level=3] [ref=e78]
+          - paragraph [ref=e79]: Link Google Sheets, Excel files, CSVs, or any database — BigQuery, Snowflake, PostgreSQL, MySQL, Airtable — in one click.
+        - generic [ref=e80]:
+          - generic [ref=e81]: "2"
+          - img [ref=e83]
+          - heading "Ask questions in plain English" [level=3] [ref=e85]
+          - paragraph [ref=e86]: No SQL. No dashboards to configure. Just type what you want to know, like "Why did revenue drop last Tuesday?"
+        - generic [ref=e87]:
+          - generic [ref=e88]: "3"
+          - img [ref=e90]
+          - heading "Get answers + proactive alerts" [level=3] [ref=e92]
+          - paragraph [ref=e93]: Instant summaries, charts, and anomaly flags — before you even have to ask. DataRola watches your data so you don&apos;t have to.
+    - generic [ref=e97]:
+      - generic [ref=e98]:
+        - heading "Everything you need. Nothing you don't." [level=2] [ref=e99]
+        - paragraph [ref=e100]: Built for small teams that move fast and need data without the overhead.
+      - generic [ref=e101]:
+        - generic [ref=e102]:
+          - img [ref=e104]
+          - heading "Text-to-SQL" [level=3] [ref=e107]
+          - paragraph [ref=e108]: Describe what you need in plain English. DataRola generates the right query and runs it against your connected data.
+        - generic [ref=e109]:
+          - img [ref=e111]
+          - heading "Anomaly Detection" [level=3] [ref=e113]
+          - paragraph [ref=e114]: Always-on monitoring that flags revenue drops, churn spikes, and inventory issues before they become problems.
+        - generic [ref=e115]:
+          - img [ref=e117]
+          - heading "Natural Language Answers" [level=3] [ref=e119]
+          - paragraph [ref=e120]: Every query result comes with a plain-English summary. No raw tables dumped on your lap — just the insight you need.
+        - generic [ref=e121]:
+          - img [ref=e123]
+          - heading "Chat Interface" [level=3] [ref=e125]
+          - paragraph [ref=e126]: Follow up, drill down, compare periods — all in a conversational UI. Like talking to your best analyst.
+        - generic [ref=e127]:
+          - img [ref=e129]
+          - heading "Ollama + Anthropic Toggle" [level=3] [ref=e131]
+          - paragraph [ref=e132]: Run locally via Ollama for zero-cost testing, or switch to Anthropic API for production-grade accuracy.
+        - generic [ref=e133]:
+          - img [ref=e135]
+          - heading "Connect Any Source" [level=3] [ref=e138]
+          - paragraph [ref=e139]: Google Sheets, Excel, CSV, BigQuery, Snowflake, Redshift, PostgreSQL, MySQL — plus CRMs like HubSpot and Salesforce coming soon.
+        - generic [ref=e140]:
+          - img [ref=e142]
+          - heading "Proactive Alerts" [level=3] [ref=e145]
+          - paragraph [ref=e146]: Email (soon Slack/Teams) alerts when something needs attention. Get useful insights without ever typing a query.
+        - generic [ref=e147]:
+          - img [ref=e149]
+          - heading "Firebase Backend" [level=3] [ref=e152]
+          - paragraph [ref=e153]: Auth, Firestore, Storage, and Cloud Functions — fast to iterate, generous free tier for the testing phase.
+    - generic [ref=e155]:
+      - generic [ref=e156]:
+        - heading "Simple pricing that scales with you" [level=2] [ref=e157]
+        - paragraph [ref=e158]: Start free. Upgrade when your team needs it. Pricing finalized during testing phase.
+      - generic [ref=e159]:
+        - generic [ref=e160]:
+          - heading "Free" [level=3] [ref=e161]
+          - paragraph [ref=e162]: For individuals exploring the tool.
+          - generic [ref=e163]:
+            - generic [ref=e164]: $0
+            - generic [ref=e165]: /forever
+          - list [ref=e166]:
+            - listitem [ref=e167]:
+              - img [ref=e168]
+              - text: 1 connected data source
+            - listitem [ref=e170]:
+              - img [ref=e171]
+              - text: 20 queries / month
+            - listitem [ref=e173]:
+              - img [ref=e174]
+              - text: Basic anomaly detection
+            - listitem [ref=e176]:
+              - img [ref=e177]
+              - text: Email alerts
+            - listitem [ref=e179]:
+              - img [ref=e180]
+              - text: Text-to-SQL with Ollama
+          - link "Start free" [ref=e182] [cursor=pointer]:
+            - /url: /app
+        - generic [ref=e183]:
+          - generic [ref=e184]: Recommended
+          - heading "Paid" [level=3] [ref=e185]
+          - paragraph [ref=e186]: For teams that need more power.
+          - generic [ref=e187]:
+            - generic [ref=e188]: TBD
+            - generic [ref=e189]: /per month
+          - list [ref=e190]:
+            - listitem [ref=e191]:
+              - img [ref=e192]
+              - text: Unlimited data sources
+            - listitem [ref=e194]:
+              - img [ref=e195]
+              - text: Unlimited queries
+            - listitem [ref=e197]:
+              - img [ref=e198]
+              - text: Advanced anomaly detection
+            - listitem [ref=e200]:
+              - img [ref=e201]
+              - text: Scheduled reports (daily / weekly)
+            - listitem [ref=e203]:
+              - img [ref=e204]
+              - text: Proactive insight agent
+            - listitem [ref=e206]:
+              - img [ref=e207]
+              - text: Email + Slack / Teams alerts
+            - listitem [ref=e209]:
+              - img [ref=e210]
+              - text: Team collaboration
+            - listitem [ref=e212]:
+              - img [ref=e213]
+              - text: Priority support
+          - link "Join waitlist" [ref=e215] [cursor=pointer]:
+            - /url: "#"
+      - paragraph [ref=e216]: Stripe-powered checkout. Cancel anytime. All features listed for Paid tier confirmed during testing.
+  - contentinfo [ref=e217]:
+    - generic [ref=e218]:
+      - generic [ref=e219]:
+        - generic [ref=e220]:
+          - link "DataRola" [ref=e221] [cursor=pointer]:
+            - /url: /
+            - img [ref=e222]
+            - text: DataRola
+          - paragraph [ref=e225]: AI-powered data analyst for small teams. Connect your data, ask questions, get insights.
+        - generic [ref=e226]:
+          - heading "Product" [level=4] [ref=e227]
+          - list [ref=e228]:
+            - listitem [ref=e229]:
+              - link "How it works" [ref=e230] [cursor=pointer]:
+                - /url: "#how-it-works"
+            - listitem [ref=e231]:
+              - link "Features" [ref=e232] [cursor=pointer]:
+                - /url: "#features"
+            - listitem [ref=e233]:
+              - link "Pricing" [ref=e234] [cursor=pointer]:
+                - /url: "#pricing"
+            - listitem [ref=e235]:
+              - link "Get Started" [ref=e236] [cursor=pointer]:
+                - /url: /app
+        - generic [ref=e237]:
+          - heading "Connectors" [level=4] [ref=e238]
+          - list [ref=e239]:
+            - listitem [ref=e240]: Google Sheets
+            - listitem [ref=e241]: BigQuery
+            - listitem [ref=e242]: Snowflake
+            - listitem [ref=e243]: PostgreSQL / MySQL
+            - listitem [ref=e244]: Airtable
+        - generic [ref=e245]:
+          - heading "Company" [level=4] [ref=e246]
+          - list [ref=e247]:
+            - listitem [ref=e248]:
+              - link "Blog" [ref=e249] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e250]:
+              - link "Privacy Policy" [ref=e251] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e252]:
+              - link "Terms of Service" [ref=e253] [cursor=pointer]:
+                - /url: "#"
+            - listitem [ref=e254]:
+              - link "support@datarola.com" [ref=e255] [cursor=pointer]:
+                - /url: "#"
+      - generic [ref=e256]:
+        - paragraph [ref=e257]: © 2026 DataRola. All rights reserved. Testing / Pre-Alpha.
+        - generic [ref=e258]:
+          - link "Twitter" [ref=e259] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e260]
+          - link "LinkedIn" [ref=e262] [cursor=pointer]:
+            - /url: "#"
+            - img [ref=e263]

@@ -1,0 +1,249 @@
+[     136ms] [LOG] [Fast Refresh] rebuilding @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/client/dev/hot-reloader/app/hot-reloader-app.js:196
+[     932ms] [INFO] %cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/compiled/react-dom/cjs/react-dom-client.development.js:25630
+[     996ms] [ERROR] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+%s%s https://react.dev/link/hydration-mismatch 
+
+  ...
+    <RedirectErrorBoundary router={{...}}>
+      <InnerLayoutRouter url="/app" tree={[...]} cacheNode={{lazyData:null, ...}} segmentPath={[...]}>
+        <SegmentViewNode type="page" pagePath="app/page.tsx">
+          <SegmentTrieNode>
+          <ClientPageRoot Component={function AppPage} searchParams={{}} params={{}}>
+            <AppPage params={Promise} searchParams={Promise}>
+              <div className="flex h-scr...">
+                <Sidebar>
+                <div className="flex flex-...">
+                  <TopBar>
+                  <main className="flex-1 ove...">
+                    <DashboardView>
+                      <div className="space-y-6 ...">
+                        <div>
+                        <div>
+                        <div className="grid gap-6...">
+                          <div className="lg:col-spa...">
+                            <h3>
+                            <div className="mt-4 flex ...">
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "58.27720696953806%"
+-                                 height: "37.9785%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "85.53298656869107%"
+-                                 height: "69.3107%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "47.346632189803884%"
+-                                 height: "97.3717%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "41.76261861372362%"
+-                                 height: "91.2332%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "80.59683193327949%"
+-                                 height: "98.2332%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "73.85366583727779%"
+-                                 height: "33.3051%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "36.154894233368346%"
+-                                 height: "61.8448%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "46.830499429335575%"
+-                                 height: "75.7423%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "32.54835042269956%"
+-                                 height: "64.4777%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "75.72346638538579%"
+-                                 height: "46.2783%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "41.25562192635845%"
+-                                 height: "55.5049%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "46.51743905152718%"
+-                                 height: "97.287%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "80.09090549040992%"
+-                                 height: "98.3599%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "95.8960089778863%"
+-                                 height: "93.65%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "63.636458844810804%"
+-                                 height: "86.8861%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "66.91759466236114%"
+-                                 height: "60.8394%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "39.37792202059913%"
+-                                 height: "90.9977%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "92.3803254935147%"
+-                                 height: "89.7706%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "53.57292304917067%"
+-                                 height: "95.2561%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "50.48648588158397%"
+-                                 height: "75.7132%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "40.559643321615624%"
+-                                 height: "93.2426%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "36.56096799710028%"
+-                                 height: "31.5661%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "82.58125105220049%"
+-                                 height: "97.3873%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "82.8112953886689%"
+-                                 height: "72.0386%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "71.46734214992655%"
+-                                 height: "44.8994%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "85.69013833402349%"
+-                                 height: "68.9396%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "64.96592475556588%"
+-                                 height: "78.9073%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "49.12120672559351%"
+-                                 height: "61.7816%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "78.72257056812245%"
+-                                 height: "50.3752%"
+                                }}
+                              >
+                              <div
+                                className="flex-1 rounded-t bg-gradient-to-t from-brand-600/40 to-brand-500/20 transit..."
+                                style={{
++                                 height: "61.9619007761991%"
+-                                 height: "80.1378%"
+                                }}
+                              >
+                          ...
+                        ...
+        ...
+      ...
+ @ webpack-internal:///(app-pages-browser)/./node_modules/next/dist/next-devtools/userspace/app/errors/intercept-console-error.js:56
