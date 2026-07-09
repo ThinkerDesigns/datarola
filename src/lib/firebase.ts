@@ -3,7 +3,13 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 
-const keys = process.env as unknown as Record<string, string | undefined>;
+const env = (typeof process !== 'undefined' && process.env)
+  ? process.env
+  : (typeof globalThis !== 'undefined' && (globalThis as any).process?.env)
+    ? (globalThis as any).process.env
+    : {};
+
+const keys: Record<string, string | undefined> = env as unknown as Record<string, string | undefined>;
 
 const firebaseConfig: Record<string, string> = {};
 for (const key of [

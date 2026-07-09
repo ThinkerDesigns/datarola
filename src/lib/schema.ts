@@ -7,6 +7,7 @@ export interface DataSource {
   status: 'connected' | 'error' | 'syncing';
   createdAt: number;
   updatedAt: number;
+  rowCount?: number;
   // Provider-specific config (never store secrets here — use Firebase Functions)
   config?: Record<string, string>;
 }
