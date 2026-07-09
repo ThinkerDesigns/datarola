@@ -78,6 +78,7 @@ export default function BillingPage() {
             <ul className="mt-3 space-y-1.5 text-xs text-slate-400">
               <li>• 10 data sources</li>
               <li>• 200 queries/month</li>
+            <li>• Advanced connectors (BigQuery, Snowflake, PostgreSQL)</li>
               <li>• All connectors (BigQuery, Snowflake, PostgreSQL, etc.)</li>
               <li>• Anomaly alerts via email</li>
             </ul>
