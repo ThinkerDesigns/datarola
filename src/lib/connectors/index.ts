@@ -1,11 +1,10 @@
 // ponytail: connector registry — each type exports a sync function and config schema.
-
 import type { ConnectorType, DataRow } from '@/lib/schema';
 
 export interface ConnectorDef {
   name: string;
   fields: Array<{ key: string; label: string; type: 'text' | 'password' | 'select' }>;
-  selector?: string;   // sheet range / table selector (e.g. "A1:D100" or "SELECT * FROM ...")
+  selector?: string;
 }
 
 export interface SyncResult {
@@ -31,18 +30,21 @@ export const CONNECTORS: Record<ConnectorType, ConnectorDef> = {
     name: 'BigQuery',
     fields: [
       { key: 'projectId', label: 'Project ID', type: 'text' },
+      { key: 'accessToken', label: 'OAuth Access Token', type: 'password' },
       { key: 'datasetId', label: 'Dataset ID', type: 'text' },
-      { key: 'query', label: 'Query', type: 'text' },
+      { key: 'query', label: 'SQL Query', type: 'text' },
     ],
   },
   'snowflake': {
     name: 'Snowflake',
     fields: [
-      { key: 'account', label: 'Account URL', type: 'text' },
-      { key: 'warehouse', label: 'Warehouse', type: 'text' },
+      { key: 'account', label: 'Account URL (e.g. abc12345.snowflakecomputing.com)', type: 'text' },
+      { key: 'user', label: 'Username', type: 'text' },
+      { key: 'password', label: 'Password', type: 'password' },
       { key: 'database', label: 'Database', type: 'text' },
       { key: 'schema', label: 'Schema', type: 'text' },
-      { key: 'query', label: 'Query', type: 'text' },
+      { key: 'warehouse', label: 'Warehouse', type: 'text' },
+      { key: 'query', label: 'SQL Query', type: 'text' },
     ],
   },
   'postgresql': {
@@ -51,8 +53,9 @@ export const CONNECTORS: Record<ConnectorType, ConnectorDef> = {
       { key: 'host', label: 'Host', type: 'text' },
       { key: 'port', label: 'Port', type: 'text' },
       { key: 'database', label: 'Database', type: 'text' },
-      { key: 'schema', label: 'Schema (optional)', type: 'text' },
-      { key: 'query', label: 'Query', type: 'text' },
+      { key: 'user', label: 'Username', type: 'text' },
+      { key: 'password', label: 'Password', type: 'password' },
+      { key: 'query', label: 'SQL Query', type: 'text' },
     ],
   },
   'mysql': {
@@ -61,7 +64,9 @@ export const CONNECTORS: Record<ConnectorType, ConnectorDef> = {
       { key: 'host', label: 'Host', type: 'text' },
       { key: 'port', label: 'Port', type: 'text' },
       { key: 'database', label: 'Database', type: 'text' },
-      { key: 'query', label: 'Query', type: 'text' },
+      { key: 'user', label: 'Username', type: 'text' },
+      { key: 'password', label: 'Password', type: 'password' },
+      { key: 'query', label: 'SQL Query', type: 'text' },
     ],
   },
   'redshift': {
@@ -71,7 +76,17 @@ export const CONNECTORS: Record<ConnectorType, ConnectorDef> = {
       { key: 'port', label: 'Port', type: 'text' },
       { key: 'database', label: 'Database', type: 'text' },
       { key: 'schema', label: 'Schema', type: 'text' },
-      { key: 'query', label: 'Query', type: 'text' },
+      { key: 'user', label: 'Username', type: 'text' },
+      { key: 'password', label: 'Password', type: 'password' },
+      { key: 'query', label: 'SQL Query', type: 'text' },
+    ],
+  },
+  'airtable': {
+    name: 'Airtable',
+    fields: [
+      { key: 'accessToken', label: 'Personal Access Token', type: 'password' },
+      { key: 'baseId', label: 'Base ID', type: 'text' },
+      { key: 'tableName', label: 'Table Name', type: 'text' },
     ],
   },
 };

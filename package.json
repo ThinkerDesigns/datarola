@@ -8,8 +8,12 @@
     "start": "next start"
   },
   "dependencies": {
+    "@cloudflare/workers-types": "^5.20260708.1",
+    "@google-cloud/bigquery": "^8.3.1",
     "firebase": "^12.15.0",
+    "mysql2": "^3.22.6",
     "next": "^15.1.0",
+    "pg": "^8.22.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "recharts": "^3.9.2"

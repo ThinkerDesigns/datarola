@@ -1,5 +1,7 @@
 'use client';
 
+import { useAuth } from '@/lib/auth-context';
+
 type View = 'dashboard' | 'connections' | 'alerts' | 'saved-queries' | 'settings';
 
 interface SidebarProps {
@@ -16,6 +18,13 @@ const navItems: { id: View; label: string; icon: string }[] = [
 ];
 
 export function Sidebar({ activeView, onViewChange }: SidebarProps) {
+  const { user } = useAuth();
+  const displayName = user?.displayName ?? '';
+  const email = user?.email ?? 'user@datarola.com';
+  const initials = displayName
+    ? displayName.slice(0, 2).toUpperCase()
+    : (email[0] ?? 'U').toUpperCase();
+
   return (
     <aside className="flex w-56 shrink-0 flex-col border-r border-white/5 bg-[#091118] py-5">
       {/* Logo */}
@@ -35,15 +44,8 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
       {/* Nav */}
       <nav className="flex-1 space-y-0.5 px-3">
         {navItems.map((item) => (
-          <button
-            key={item.id}
-            onClick={() => onViewChange(item.id)}
-            className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${
-              activeView === item.id
-                ? 'bg-brand-600/15 text-brand-400'
-                : 'text-slate-400 hover:bg-white/5 hover:text-white'
-            }`}
-          >
+          <button key={item.id} onClick={() => onViewChange(item.id)}
+            className={`w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-all ${activeView === item.id ? 'bg-brand-600/15 text-brand-400' : 'text-slate-400 hover:bg-white/5 hover:text-white'}`}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <path d={item.icon} />
             </svg>
@@ -56,10 +58,10 @@ export function Sidebar({ activeView, onViewChange }: SidebarProps) {
       <div className="mx-3 mt-auto rounded-xl border border-white/5 bg-white/[0.02] p-3">
         <div className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-600 text-sm font-medium text-white">
-            A
+            {initials}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-xs font-medium text-white">Alice Chen</p>
+            <p className="truncate text-xs font-medium text-white">{displayName || email.split('@')[0]}</p>
             <p className="truncate text-[11px] text-slate-500">Free plan</p>
           </div>
         </div>

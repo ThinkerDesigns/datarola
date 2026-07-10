@@ -2,13 +2,13 @@
 
 // ponytail: server actions for connector sync — called from the UI to trigger data pulls.
 import { db } from '@/lib/firebase';
-import type { DataSource } from '@/lib/schema';
+import type { DataSource, ConnectorType } from '@/lib/schema';
 import { doc, setDoc, deleteDoc, updateDoc, collection, addDoc, writeBatch, getDocs, query, where, limit } from 'firebase/firestore';
 import { syncGoogleSheet } from './google-sheets';
 import { parseCSVRaw } from './csv';
 import { refreshAccessToken } from '@/lib/google-oauth';
+import { syncBigQuery, syncSnowflake, syncAirtable } from './external';
 
-// Guard: all functions need db to be initialized
 const _db = db ?? (() => { throw new Error('Firebase not configured'); })();
 
 export async function connectDataSource(uid: string, config: Omit<DataSource, 'id'>) {
@@ -28,33 +28,49 @@ export async function syncSource(uid: string, dsId: string, providerConfig: Reco
     let columns: string[] = [];
     let rows: (string | number | boolean | null)[][] = [];
 
-    if (providerConfig.type === 'google-sheets') {
-      let accessToken = providerConfig.accessToken;
-      // Try to refresh if no access token provided (e.g. stored tokens)
-      if (!accessToken) {
-        try {
-          accessToken = await refreshAccessToken(uid);
-        } catch { /* fall through — will error at Google API */ }
+    switch (providerConfig.type as ConnectorType) {
+      case 'google-sheets': {
+        let accessToken = providerConfig.accessToken;
+        if (!accessToken) {
+          try { accessToken = await refreshAccessToken(uid); } catch { /* fall through */ }
+        }
+        if (!accessToken) throw new Error('Missing access token for Google Sheets.');
+        const sheetsResult = await syncGoogleSheet({ uid, spreadsheetId: providerConfig.spreadsheetId!, range: providerConfig.range || 'A1:Z10000', accessToken });
+        columns = sheetsResult.columns;
+        rows = sheetsResult.rows;
+        break;
       }
-      if (!accessToken) throw new Error('Missing access token for Google Sheets.');
-
-      const sheetsResult = await syncGoogleSheet({
-        uid,
-        spreadsheetId: providerConfig.spreadsheetId!,
-        range: providerConfig.range || 'A1:Z10000',
-        accessToken,
-      });
-      columns = sheetsResult.columns;
-      rows = sheetsResult.rows;
+      case 'bigquery': {
+        const bqResult = await syncBigQuery({ projectId: providerConfig.projectId!, accessToken: providerConfig.accessToken!, query: providerConfig.query! });
+        columns = bqResult.columns;
+        rows = bqResult.rows;
+        break;
+      }
+      case 'snowflake': {
+        const sfResult = await syncSnowflake({ account: providerConfig.account!, user: providerConfig.user!, password: providerConfig.password!, database: providerConfig.database!, schema: providerConfig.schema!, warehouse: providerConfig.warehouse!, query: providerConfig.query! });
+        columns = sfResult.columns;
+        rows = sfResult.rows;
+        break;
+      }
+      case 'airtable': {
+        const atResult = await syncAirtable({ accessToken: providerConfig.accessToken!, baseId: providerConfig.baseId!, tableName: providerConfig.tableName! });
+        columns = atResult.columns;
+        rows = atResult.rows;
+        break;
+      }
+      case 'postgresql':
+      case 'mysql':
+      case 'redshift':
+        throw new Error('SQL database sync requires a Firebase Function. Connect via the connector extension.');
+      default:
+        throw new Error(`Unknown connector type: ${providerConfig.type}`);
     }
 
     const rowsRef = collection(_db, 'users', uid, 'dataSources', dsId, 'rows');
     const batch = writeBatch(_db);
-
     for (const row of rows) {
       batch.set(doc(rowsRef), { columns, values: row, syncedAt: Date.now() });
     }
-
     await batch.commit();
 
     await updateDoc(doc(_db, 'users', uid, 'dataSources', dsId), {
@@ -62,7 +78,6 @@ export async function syncSource(uid: string, dsId: string, providerConfig: Reco
       updatedAt: Date.now(),
       rowCount: rows.length,
     });
-
     return { rowCount: rows.length };
   } catch (err) {
     console.error('Sync failed:', err);
@@ -74,23 +89,14 @@ export async function syncSource(uid: string, dsId: string, providerConfig: Reco
 export async function uploadCSV(uid: string, fileName: string, fileContent: string, dsId?: string): Promise<DataSource> {
   const id = dsId ?? `csv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
   const parsed = parseCSVRaw(fileContent);
-
   await setDoc(doc(_db, 'users', uid, 'dataSources', id), {
-    name: fileName,
-    type: 'csv-upload' as const,
-    status: 'connected' as const,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    rowCount: parsed.values.length,
+    name: fileName, type: 'csv-upload' as const, status: 'connected' as const,
+    createdAt: Date.now(), updatedAt: Date.now(), rowCount: parsed.values.length,
   });
-
   for (const row of parsed.values) {
     await addDoc(collection(_db, 'users', uid, 'dataSources', id, 'rows'), {
-      columns: parsed.columns,
-      values: row,
-      syncedAt: Date.now(),
+      columns: parsed.columns, values: row, syncedAt: Date.now(),
     });
   }
-
   return { id, name: fileName, type: 'csv-upload', status: 'connected', createdAt: Date.now(), updatedAt: Date.now() };
 }

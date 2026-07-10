@@ -8,7 +8,6 @@ export interface DataSource {
   createdAt: number;
   updatedAt: number;
   rowCount?: number;
-  // Provider-specific config (never store secrets here — use Firebase Functions)
   config?: Record<string, string>;
 }
 
@@ -19,7 +18,8 @@ export type ConnectorType =
   | 'snowflake'
   | 'postgresql'
   | 'mysql'
-  | 'redshift';
+  | 'redshift'
+  | 'airtable';
 
 // Synced rows are stored as one Firestore doc per row, under /users/{uid}/dataSources/{dsId}/rows/{rowId}
 export interface DataRow {
