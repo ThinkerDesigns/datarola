@@ -22,12 +22,12 @@ function SignInForm() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Only redirect to /app when we're already past auth pages — prevents instant redirect on auth-pageload
+  // Redirect to /app when auth state changes (user logged in). Loading guard prevents redirect during initial mount.
   useEffect(() => {
-    if (!loading && user && pathname !== '/sign-in' && pathname !== '/sign-up') {
+    if (!loading && user) {
       router.push('/app');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

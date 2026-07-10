@@ -1,8 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { useDataSources } from '@/lib/use-data-sources';
+import { db } from '@/lib/firebase';
+import { collection, doc, updateDoc, onSnapshot } from 'firebase/firestore';
 import { AnomalyDrillDown } from './anomaly-drilldown';
 
 interface Alert {
@@ -55,7 +57,7 @@ function detectAnomalies(rowsByDs: Map<string, RowSet>): Alert[] {
           id: `anom_${dsId}_${i}`,
           metric: rRow.columns?.[numIdx] ?? 'Unknown Metric',
           severity: 'critical',
-          message: `Dropped to ${formatValue(rVal)} — down ${((1 - rVal / prevMean) * 100).toFixed(0)}% from the average of $${formatValue(prevMean)}.`,
+          message: `Dropped to ${formatValue(rVal)} — down ${((1 - rVal / prevMean) * 100).toFixed(0)}% from the average of ${formatValue(prevMean)}.`,
           time: `${rows.length - i} rows ago`,
           acknowledged: false,
           dsId,
@@ -65,7 +67,7 @@ function detectAnomalies(rowsByDs: Map<string, RowSet>): Alert[] {
           id: `anom_${dsId}_${i}`,
           metric: rRow.columns?.[numIdx] ?? 'Unknown Metric',
           severity: 'warning',
-          message: `Trending down to $${formatValue(rVal)} — ${((1 - rVal / prevMean) * 100).toFixed(0)}% below the average of $${formatValue(prevMean)}.`,
+          message: `Trending down to ${formatValue(rVal)} — ${((1 - rVal / prevMean) * 100).toFixed(0)}% below the average of ${formatValue(prevMean)}.`,
           time: `${rows.length - i} rows ago`,
           acknowledged: false,
           dsId,
@@ -81,6 +83,18 @@ function formatValue(v: number): string {
   if (Math.abs(v) >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`;
   if (Math.abs(v) >= 1_000) return `${(v / 1_000).toFixed(2)}k`;
   return v.toFixed(2);
+}
+
+function formatTimeAgo(ts: number | undefined): string {
+  if (!ts) return 'unknown';
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60_000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days}d ago`;
 }
 
 const severityConfig = {
@@ -103,17 +117,42 @@ const severityIcon = (severity: string) => {
 
 export function AlertsView() {
   const [drillDown, setDrillDown] = useState<{ metric: string; severity: 'critical' | 'warning' | 'info'; dsId: string } | null>(null);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
   const { user } = useAuth();
   const sources = useDataSources(user?.uid ?? null);
 
-  // For now, use mock alerts — in production these come from scheduled anomaly scans
-  const alerts: Alert[] = [
-    ...detectAnomalies(new Map()), // placeholder — real data flows through onSnapshot hooks
-    { id: '1', metric: 'Daily Revenue', severity: 'critical', message: 'Revenue dropped 34% vs. same day last week. Most affected: subscription renewals.', time: '2h ago', acknowledged: false },
-    { id: '2', metric: 'Sign-up Velocity', severity: 'warning', message: 'New signups 18% below weekday baseline. Pattern holds for 3 consecutive days.', time: '5h ago', acknowledged: false },
-    { id: '3', metric: 'Support Ticket Volume', severity: 'info', message: 'Ticket volume up 22% — correlated with v2.4 release. Mostly login issues resolving naturally.', time: '8h ago', acknowledged: true },
-    { id: '4', metric: 'API Error Rate', severity: 'warning', message: '5xx errors at 1.2% for 45 min window. Auto-resolved after scaling.', time: '1d ago', acknowledged: true },
-  ];
+  // Real-time alerts from Firestore /users/{uid}/alerts/
+  useEffect(() => {
+    if (!user?.uid || !db) return;
+    const unsub = onSnapshot(collection(db, 'users', user.uid, 'alerts'), (snap) => {
+      const fetched: Alert[] = [];
+      for (const d of snap.docs) {
+        const data = d.data() as Record<string, unknown>;
+        const zScore = Number(data.zScore) || 0;
+        fetched.push({
+          id: d.id,
+          metric: data.metric as string ?? `Column ${data.columnIndex ?? '?'}`,
+          severity: (zScore > 3 ? 'critical' : zScore > 2 ? 'warning' : 'info') as 'critical' | 'warning' | 'info',
+          message: String(data.message ?? `Value ${data.value} deviates ${Math.abs(zScore).toFixed(1)}σ from mean ${data.mean}`),
+          time: formatTimeAgo(Number(data.detectedAt) || 0),
+          acknowledged: !!(data.read ?? false),
+          dsId: (data.sourceId as string) ?? undefined,
+        });
+      }
+      // Sort: unacknowledged first, then by detectedAt desc
+      fetched.sort((a, b) => {
+        if (a.acknowledged !== b.acknowledged) return a.acknowledged ? 1 : -1;
+        return 0;
+      });
+      setAlerts(fetched);
+    });
+    return unsub;
+  }, [user?.uid, !!db]);
+
+  const handleAcknowledge = async (alertId: string) => {
+    if (!user?.uid || !db) return;
+    await updateDoc(doc(db, 'users', user.uid, 'alerts', alertId), { read: true });
+  };
 
   const unreadCount = alerts.filter((a) => !a.acknowledged).length;
 
@@ -155,8 +194,7 @@ export function AlertsView() {
           alerts.map((alert) => {
             const sc = severityConfig[alert.severity];
             return (
-              <button key={alert.id} onClick={() => alert.dsId && setDrillDown({ metric: alert.metric, severity: alert.severity, dsId: alert.dsId })}
-                className={`w-full text-left rounded-xl border ${sc.border} ${sc.bg} px-5 py-4 flex items-start gap-4 hover:border-white/10 transition-colors ${alert.dsId ? 'cursor-pointer' : ''}`}>
+              <div key={alert.id} className={`w-full text-left rounded-xl border ${sc.border} ${sc.bg} px-5 py-4 flex items-start gap-4 hover:border-white/10 transition-colors`}>
                 <div className="shrink-0 mt-0.5">{severityIcon(alert.severity)}</div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -171,7 +209,11 @@ export function AlertsView() {
                   <p className="mt-1 text-sm text-slate-400">{alert.message}</p>
                 </div>
                 <span className="shrink-0 text-xs text-slate-600">{alert.time}</span>
-              </button>
+                <button onClick={() => handleAcknowledge(alert.id)} disabled={alert.acknowledged}
+                  className="shrink-0 text-[11px] text-slate-500 hover:text-brand-400 disabled:opacity-30 transition-colors">
+                  {alert.acknowledged ? '✓' : 'Acknowledge'}
+                </button>
+              </div>
             );
           })
         )}

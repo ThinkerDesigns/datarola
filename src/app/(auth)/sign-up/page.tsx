@@ -22,12 +22,12 @@ function SignUpForm() {
   const router = useRouter();
   const pathname = usePathname();
 
-  // Don't redirect if already on the auth page — prevents infinite loop when Firebase resolves instantly
+  // Redirect to /app when auth state changes. Loading guard prevents redirect during initial mount.
   useEffect(() => {
-    if (user && !loading && pathname !== '/sign-up' && pathname !== '/sign-in') {
+    if (user && !loading) {
       router.push('/app');
     }
-  }, [user, loading, router, pathname]);
+  }, [user, loading, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

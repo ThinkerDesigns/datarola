@@ -103,45 +103,264 @@ export async function runQuery(uid: string, queryText: string): Promise<Record<s
 
   generatedSql = cleanSql(generatedSql);
 
-  // Execute against synced rows (simple WHERE / ORDER BY / LIMIT interpreter)
-  return executeOnRows(allRows, maxCols, generatedSql);
+  // Execute against synced rows (SQL interpreter with aggregations)
+  try {
+    return executeOnRows(allRows, maxCols, generatedSql);
+  } catch {
+    return { columns: [], values: [], rowCount: 0, sql: generatedSql, error: 'The generated query could not be parsed. Try rephrasing your question.' };
+  }
 }
 
-// Simple SQL interpreter for P0
+// SQL interpreter supporting WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, and aggregates (COUNT/SUM/AVG/MIN/MAX).
 function executeOnRows(rows: Array<{ columns: string[]; values: unknown[] }>, cols: string[], sql: string): Record<string, unknown> {
   if (rows.length === 0) return { columns: [], values: [], rowCount: 0, sql };
 
-  let limit = Infinity;
-  const lm = sql.match(/LIMIT\s+(\d+)/i); if (lm) limit = parseInt(lm[1]);
+  // Parse clauses
+  const limitMatch = sql.match(/LIMIT\s+(\d+)/i);
+  const limitVal = limitMatch ? parseInt(limitMatch[1]) : Infinity;
 
-  let orderByCol: string | null = null;
-  const od = sql.match(/ORDER\s+BY\s+(\w+)\s*(ASC|DESC)?/i);
-  if (od) { orderByCol = od[1]; }
+  const groupByMatch = sql.match(/\bGROUP\s+BY\s+(.+)/i);
+  const havingMatch = sql.match(/\bHAVING\s+(.+)/i);
+  const orderByMatch = sql.match(/\bORDER\s+BY\s+(\w+)(\s+(ASC|DESC))?/i);
+  const selectMatch = sql.match(/\bSELECT\s+(.+)/i);
 
-  const wm = sql.match(/WHERE\s+(.+)/i);
-  let filtered: unknown[][];
-  if (wm) {
-    // Simple: split on AND, parse "col OP val" conditions
-    const parts = wm[1].split(/\s+AND\s+/i);
-    const conds = parts.map((p) => { const m = p.match(/^(\w+)\s*(>=?|<=?|=|!=)\s*['"]?(.*?)['"]?\s*$/); return m ? { col: m[1], op: m[2], val: m[3] } : null; }).filter(Boolean) as Array<{ col: string; op: string; val: string }>;
-    filtered = rows.map((r) => r.values).filter((row) => conds.every((c) => {
+  // Detect if this is an aggregate query
+  const isAggregate = /\b(COUNT|SUM|AVG|MIN|MAX)\s*\(/i.test(sql);
+
+  // Parse WHERE conditions (everything before GROUP BY / HAVING / ORDER BY)
+  let whereClause: string | null = null;
+  const selectPos = selectMatch ? sql.indexOf('SELECT') + 6 : -1;
+  const groupPos = groupByMatch ? sql.indexOf('GROUP', Math.max(selectPos >= 0 ? selectPos : 0)) : sql.length;
+  const wherePart = sql.slice(Math.max(0, selectPos), groupPos);
+  const wm = wherePart.match(/\bWHERE\s+(.+)/i);
+  if (wm) whereClause = wm[1];
+
+  let baseRows: unknown[][];
+  if (whereClause) {
+    const parts = splitWhereClause(whereClause);
+    const conds = parts.map(parseCond).filter(Boolean) as Array<{ col: string; op: string; val: string | number }>;
+    baseRows = rows.map((r) => r.values).filter((row) => conds.every((c) => {
       const idx = cols.indexOf(c.col); if (idx < 0) return true;
       const a = row[idx], v = c.val;
       switch (c.op) {
-        case '=': return String(a) === v; case '!=': return String(a) !== v;
-        case '>': return Number(a) > Number(v); case '>=': return Number(a) >= Number(v);
-        case '<': return Number(a) < Number(v); case '<=': return Number(a) <= Number(v);
+        case '=': return String(a) === String(v);
+        case '!=': return String(a) !== String(v);
+        case '>': return Number(a) > Number(v);
+        case '>=': return Number(a) >= Number(v);
+        case '<': return Number(a) < Number(v);
+        case '<=': return Number(a) <= Number(v);
+        case 'LIKE': {
+          const likeVal = String(v).replace(/%/g, '').replace(/_/g, '');
+          if (String(v).startsWith('%') && String(v).endsWith('%')) return String(a).includes(likeVal);
+          if (String(v).startsWith('%')) return String(a).endsWith(likeVal);
+          if (String(v).endsWith('%')) return String(a).startsWith(likeVal);
+          return String(a) === likeVal;
+        }
         default: return true;
       }
     }));
-  } else { filtered = rows.map((r) => r.values); }
-
-  if (orderByCol) {
-    const ci = cols.indexOf(orderByCol);
-    if (ci >= 0) filtered.sort((a: unknown[], b: unknown[]) => Number(a[ci]) > Number(b[ci]) ? 1 : -1);
+  } else {
+    baseRows = rows.map((r) => r.values);
   }
 
-  return { columns: cols, values: filtered.slice(0, limit), rowCount: filtered.length, sql, error: null };
+  // If no aggregates, apply ORDER BY and LIMIT directly
+  if (!isAggregate) {
+    const result = [...baseRows];
+    if (orderByMatch) {
+      const ci = cols.indexOf(orderByMatch[1]);
+      if (ci >= 0) result.sort((a: unknown[], b: unknown[]) => {
+        const av = Number(a[ci]), bv = Number(b[ci]);
+        return orderByMatch[3]?.toUpperCase() === 'DESC' ? bv - av : av - bv;
+      });
+    }
+    return { columns: cols, values: result.slice(0, limitVal), rowCount: result.length, sql, error: null };
+  }
+
+  // Aggregate path: group rows by specified columns
+  const groupCols = groupByMatch ? groupByMatch[1].split(/\s*,\s*/).map((c) => c.trim()) : null;
+
+  // Parse aggregate expressions from SELECT: "COUNT(*), SUM(col), AVG(val)"
+  const aggExprs: Array<{ func: 'count' | 'sum' | 'avg' | 'min' | 'max'; colIndex: number }> = [];
+  if (selectMatch) {
+    const selectBody = selectMatch[1];
+    const aggRegex = /\b(COUNT|SUM|AVG|MIN|MAX)\s*\(\s*(\*|[a-zA-Z_]\w*)\s*\)/gi;
+    let m: RegExpExecArray | null;
+    while ((m = aggRegex.exec(selectBody)) !== null) {
+      const func = m[1].toLowerCase() as 'count' | 'sum' | 'avg' | 'min' | 'max';
+      if (m[2] === '*') {
+        // COUNT(*) doesn't need column index — handled specially
+      } else {
+        const ci = cols.indexOf(m[2]);
+        if (ci >= 0) aggExprs.push({ func, colIndex: ci });
+      }
+    }
+  }
+
+  if (!groupCols || groupCols.length === 0) {
+    // No GROUP BY — aggregate over all rows as one group
+    const aggRow = isCountOnly(sql) ? { count: baseRows.length } : computeAggregates(baseRows, cols, sql);
+    let finalRow = Object.values(aggRow);
+
+    // HAVING check on the aggregated row
+    if (havingMatch) {
+      const havingConds = parseHaving(havingMatch[1], cols);
+      const pass = havingConds.every((c) => compareHaving(finalRow, c, cols));
+      if (!pass) finalRow = [];
+    }
+
+    return { columns: Object.keys(aggRow), values: [finalRow], rowCount: finalRow.length ? 1 : 0, sql, error: null };
+  }
+
+  // Group by specified columns
+  const groups = new Map<string, unknown[][]>();
+  for (const row of baseRows) {
+    const key = groupCols.map((gc, gi) => {
+      const ci = cols.indexOf(gc);
+      return ci >= 0 ? String(row[ci]) : '';
+    }).join('\x00');
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(row);
+  }
+
+  // Parse HAVING conditions (reference aggregated columns)
+  const havingConds = havingMatch ? parseHaving(havingMatch[1], cols) : [];
+
+  const resultRows: unknown[][] = [];
+  let totalRows = 0;
+
+  for (const [key, groupRows] of groups) {
+    const aggValues = computeAggregates(groupRows, cols, sql);
+
+    // Check HAVING
+    if (!havingConds.every((c) => compareHavingGroup(aggValues, c))) continue;
+
+    // Build result row: GROUP BY columns + aggregate results
+    const keyParts = key.split('\x00');
+    const aggRow = [...keyParts, ...Object.values(aggValues)];
+    resultRows.push(aggRow);
+    totalRows++;
+  }
+
+  // Build result column names: GROUP BY columns + aggregate column names from SQL
+  const aggColNames: string[] = [];
+  if (selectMatch) {
+    const aggRegex2 = /\b(COUNT|SUM|AVG|MIN|MAX)\s*\(\s*(\*|[a-zA-Z_]\w*)\s*\)/gi;
+    let m2: RegExpExecArray | null;
+    while ((m2 = aggRegex2.exec(selectMatch[1])) !== null) {
+      if (m2[2] !== '*') aggColNames.push(m2[2]);
+    }
+  }
+  const resultCols = [...groupCols, ...aggColNames];
+  if (orderByMatch) {
+    const orderByColName = orderByMatch[1];
+    let ci = cols.indexOf(orderByColName);
+    // If not found in source columns, try index into aggregated result
+    if (ci < 0) {
+      for (let i = 0; i < aggColNames.length; i++) {
+        if (aggColNames[i].toLowerCase() === orderByColName.toLowerCase()) { ci = groupCols.length + i; break; }
+      }
+    }
+    if (ci >= 0 && resultRows[0]) {
+      const dir = orderByMatch[3]?.toUpperCase() === 'DESC' ? -1 : 1;
+      resultRows.sort((a, b) => {
+        const av = Number(a[ci]), bv = Number(b[ci]);
+        return (bv - av) * dir;
+      });
+    }
+  }
+
+  return { columns: resultCols, values: resultRows.slice(0, limitVal), rowCount: totalRows, sql, error: null };
+}
+
+// ── SQL parsing helpers ────────────────────────────────────────
+
+function splitWhereClause(clause: string): string[] {
+  const parts: string[] = [];
+  let depth = 0, start = 0;
+  for (let i = 0; i < clause.length; i++) {
+    if (clause[i] === '(') depth++;
+    else if (clause[i] === ')') depth--;
+    else if (depth === 0 && clause.substring(i, i + 3).toUpperCase() === 'AND' && i > 0 && clause[i - 1] !== '(') {
+      parts.push(clause.slice(start, i).trim());
+      start = i + 3;
+    }
+  }
+  parts.push(clause.slice(start).trim());
+  return parts.filter(Boolean);
+}
+
+function parseCond(part: string): { col: string; op: string; val: string | number } | null {
+  // LIKE first (contains %)
+  const likeMatch = part.match(/^(\w+)\s+LIKE\s+(.*)/i);
+  if (likeMatch) return { col: likeMatch[1], op: 'LIKE', val: likeMatch[2] };
+
+  // Standard operators
+  const m = part.match(/^(\w+)\s*(>=?|<=?|=|!=)\s*(['"]?)(.+?)\3\s*$/);
+  if (!m) return null;
+  const rawVal = m[4];
+  const numVal = Number(rawVal);
+  return { col: m[1], op: m[2], val: !isNaN(numVal) && /^-?\d+(\.\d+)?$/.test(rawVal) ? numVal : rawVal };
+}
+
+function computeAggregates(rows: unknown[][], cols: string[], sql: string): Record<string, number> {
+  const result: Record<string, number> = { count: rows.length };
+  const funcs = ['SUM', 'AVG', 'MIN', 'MAX'];
+  for (const fn of funcs) {
+    const regex = new RegExp(`\\b${fn}\\s*\\(\\s*(\\w+)\\s*\\)`, 'gi');
+    let m: RegExpExecArray | null;
+    while ((m = regex.exec(sql)) !== null) {
+      const ci = cols.indexOf(m[1]);
+      if (ci >= 0) {
+        const vals = rows.map((r) => Number(r[ci])).filter((v) => !isNaN(v));
+        switch (fn) {
+          case 'SUM': result[m[1]] = vals.reduce((a, b) => a + b, 0); break;
+          case 'AVG': result[m[1]] = vals.length ? vals.reduce((a, b) => a + b, 0) / vals.length : 0; break;
+          case 'MIN': result[m[1]] = Math.min(...vals); break;
+          case 'MAX': result[m[1]] = Math.max(...vals); break;
+        }
+      }
+    }
+  }
+  return result;
+}
+
+function isCountOnly(sql: string): boolean {
+  return /^\s*SELECT\s+COUNT\s*\(\s*\*\s*\)\s*$/.test(sql.trim());
+}
+
+function parseHaving(having: string, cols: string[]): Array<{ name: string; op: string; val: number }> {
+  const parts = splitWhereClause(having);
+  return parts.map((p) => {
+    const m = p.match(/^(\w+)\s*(>=?|<=?|=|!=)\s*([\d.]+)/);
+    if (!m) return null;
+    return { name: m[1], op: m[2], val: Number(m[3]) };
+  }).filter(Boolean) as Array<{ name: string; op: string; val: number }>;
+}
+
+function compareHaving(values: unknown[], cond: { name: string; op: string; val: number }, cols: string[]): boolean {
+  const idx = cols.indexOf(cond.name);
+  if (idx >= 0 && values[idx] !== undefined) return compareVal(values[idx], cond.op, cond.val);
+  // If column not found, try matching against aggregated alias names in the result row
+  // For simple cases like "count" or "SUM(revenue)" this may be ambiguous — pass through
+  return true;
+}
+
+function compareHavingGroup(aggValues: Record<string, number>, cond: { name: string; op: string; val: number }): boolean {
+  const actual = aggValues[cond.name] ?? aggValues[cond.name.toLowerCase()] ?? 0;
+  return compareVal(actual, cond.op, cond.val);
+}
+
+function compareVal(a: unknown, op: string, b: number): boolean {
+  const n = Number(a);
+  switch (op) {
+    case '=': return n === b;
+    case '!=': return n !== b;
+    case '>': return n > b;
+    case '>=': return n >= b;
+    case '<': return n < b;
+    case '<=': return n <= b;
+    default: return true;
+  }
 }
 
 // ── Anomaly detection ────────────────────────────────────────

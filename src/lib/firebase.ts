@@ -1,5 +1,6 @@
 // ponytail: minimal Firebase init — auth (email/password + Google) + Firestore only.
-// Must only run in the browser — SSR has no localStorage/window.
+// db is initialized for BOTH browser and server contexts (needed for server actions).
+// Auth/persistence remains browser-only since it needs localStorage/window.
 
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, browserLocalPersistence, setPersistence } from 'firebase/auth';
@@ -26,24 +27,32 @@ for (const key of [
 }
 
 const hasAllKeys = Object.values(firebaseConfig).every((v) => v.length > 0);
-// Guard: only init in browser where localStorage/window exist
-const isBrowser = typeof window !== 'undefined';
 
-export const app = hasAllKeys && isBrowser && getApps().length === 0
+// Browser-only flag: affects where auth/persistence is set (not db init)
+export const isBrowser = typeof window !== 'undefined';
+
+export const app = hasAllKeys && getApps().length === 0
   ? initializeApp(firebaseConfig)
   : (getApps()[0] ?? null);
 
-export let auth: ReturnType<typeof getAuth> | null = null;
+// Initialize Firestore for BOTH server and client — server actions need it.
 export let db: ReturnType<typeof getFirestore> | null = null;
+if (app) {
+  try {
+    db = getFirestore(app);
+  } catch {
+    // If Firestore init fails, fall back to mock operations
+    db = null;
+  }
+}
 
+// Auth is browser-only — needs localStorage/window for persistence
+export let auth: ReturnType<typeof getAuth> | null = null;
 if (isBrowser && app) {
   try {
     auth = getAuth(app);
-    db = getFirestore(app);
     setPersistence(auth, browserLocalPersistence).catch(() => {});
   } catch {
-    // If Firebase init fails (bad API key, network issue), fall back to mock auth
     auth = null;
-    db = null;
   }
 }

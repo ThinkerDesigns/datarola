@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
@@ -45,10 +45,14 @@ function syncUser(user: User): void {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const devClaimed = useRef(false);
 
   useEffect(() => {
     if (!auth) {
       // Dev fallback: when Firebase isn't configured, pretend we signed in as alice@company.com
+      // Only set once per mount — prevents re-setting after signOut.
+      if (devClaimed.current) return;
+      devClaimed.current = true;
       setUser({
         uid: 'dev-user-001',
         email: 'alice@company.com',
@@ -67,7 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         delete() { return Promise.resolve(); },
       } as unknown as User);
       setLoading(false);
-      return () => {};
+      return;
     }
     return onAuthStateChanged(auth, (u) => {
       setUser(u);
@@ -76,19 +80,40 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  // When Firebase isn't configured (dev without .env), use a stub that pretends auth works
-  const stub = async (_: unknown) => ({ user: null } as any);
+  // Dev mock user — shared reference so we can clear it consistently
+  const devUser = {
+    uid: 'dev-user-001',
+    email: 'alice@company.com',
+    displayName: 'Alice Chen',
+    emailVerified: true,
+    isAnonymous: false,
+    metadata: { creationTime: '', lastSignInTime: '' },
+    providerData: [],
+    refreshToken: '',
+    tenantId: null,
+    toJSON() { return {}; },
+    get accessToken() { return ''; },
+    getIdToken() { return Promise.resolve(''); },
+    getIdTokenResult() { return Promise.resolve({} as any); },
+    reload() { return Promise.resolve(); },
+    delete() { return Promise.resolve(); },
+  } as unknown as User;
+
+  // When Firebase isn't configured (dev without .env), use stubs that pretend auth works.
+  const devSignOut = async () => { setUser(null); setLoading(false); };
 
   const signIn: AuthState['signIn'] = IS_CONFIGURED
     ? (email, password) => signInWithEmailAndPassword(auth!, email, password)
-    : stub as AuthState['signIn'];
+    : (async (_email: string, _password: string) => {
+        setUser(devUser); setLoading(false); return {} as any;
+      }) as AuthState['signIn'];
 
   const signUp: AuthState['signUp'] = IS_CONFIGURED
     ? async (email, password) => {
         const cred = await createUserWithEmailAndPassword(auth!, email, password);
         syncUser(cred.user);
       }
-    : stub as AuthState['signUp'];
+    : (async () => { setUser(devUser); setLoading(false); }) as AuthState['signUp'];
 
   const signInWithGoogle: AuthState['signInWithGoogle'] = IS_CONFIGURED
     ? async () => {
@@ -96,11 +121,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const cred = await signInWithPopup(auth!, provider);
         syncUser(cred.user);
       }
-    : stub as AuthState['signInWithGoogle'];
+    : (async () => { setUser(devUser); setLoading(false); }) as AuthState['signInWithGoogle'];
 
   const signOut: AuthState['signOut'] = IS_CONFIGURED
     ? () => fbSignOut(auth!)
-    : stub as AuthState['signOut'];
+    : devSignOut;
 
   return (
     <Ctx.Provider value={{

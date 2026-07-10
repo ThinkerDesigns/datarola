@@ -3,9 +3,15 @@
 import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 import { CONNECTORS, type ConnectorDef } from '@/lib/connectors';
-import { connectDataSource, uploadCSV, syncSource as doSyncSource } from '@/lib/connectors/server-actions';
+import { connectDataSource, syncSource as doSyncSource } from '@/lib/connectors/server-actions';
+import { parseCSVRaw, parseXLSX } from '@/lib/connectors/csv';
 import { generateAuthUrl } from '@/lib/google-oauth';
 import type { ConnectorType } from '@/lib/schema';
+import { doc, setDoc, collection, addDoc } from 'firebase/firestore';
+import { db as firebaseDb } from '@/lib/firebase';
+
+// ponytail: client-side db reference for direct Firestore writes — avoids server SDK edge runtime issue.
+const clientDb = firebaseDb;
 
 interface ConnectSourceModalProps {
   onClose: () => void;
@@ -19,15 +25,42 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
   const [fields, setFields] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [hasFile, setHasFile] = useState(false);
   const { user } = useAuth();
 
   if (!user) return null;
 
   const def = selectedType ? CONNECTORS[selectedType] : null;
 
+  // Parsed columns/values from CSV/XLSX upload
+  const [parsedColumns, setParsedColumns] = useState<string[]>([]);
+  const [parsedValues, setParsedValues] = useState<(string | number | boolean | null)[][]>([]);
+
   const handleSelect = (type: ConnectorType) => {
     setSelectedType(type);
     setStep('config');
+    setHasFile(false);
+  };
+
+  /** Write CSV/XLSX data directly to Firestore from the client side. */
+  const writeCSVData = async (uid: string, fileName: string): Promise<string> => {
+    if (!clientDb) throw new Error(
+      'Firebase is not configured. In dev mode, sign in with Google first to enable real Firebase Auth, then CSV uploads will work.'
+    );
+    const id = `csv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+
+    await setDoc(doc(clientDb, 'users', uid, 'dataSources', id), {
+      name: fileName, type: 'csv-upload' as const, status: 'connected' as const,
+      createdAt: Date.now(), updatedAt: Date.now(), rowCount: parsedValues.length,
+    });
+
+    for (const row of parsedValues) {
+      await addDoc(collection(clientDb, 'users', uid, 'dataSources', id, 'rows'), {
+        columns: parsedColumns, values: row, syncedAt: Date.now(),
+      });
+    }
+
+    return id;
   };
 
   const handleSubmit = async () => {
@@ -36,24 +69,28 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
     setLoading(true);
 
     try {
-      const ds = await connectDataSource(user.uid, {
-        name: def!.name,
-        type: selectedType,
-        status: 'connected',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-        config: { ...fields },
-      });
+      // For CSV/XLSX, we write directly from client (data already parsed), so skip server-side row upload
+      let dsId: string;
+      if (selectedType === 'csv-upload' && parsedColumns.length > 0) {
+        dsId = await writeCSVData(user.uid, def!.name);
+        onConnected(dsId);
+      } else {
+        const ds = await connectDataSource(user.uid, {
+          name: def!.name,
+          type: selectedType,
+          status: 'connected',
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          config: { ...fields },
+        });
 
-      // Auto-sync for CSV uploads
-      if (selectedType === 'csv-upload' && fields.csvContent) {
-        await uploadCSV(user.uid, `${ds.name}.csv`, fields.csvContent, ds.id);
-      } else if (selectedType === 'google-sheets') {
-        // Sync Google Sheet
-        await doSyncSource(user.uid, ds.id, { ...fields, type: selectedType });
+        if (selectedType === 'google-sheets') {
+          await doSyncSource(user.uid, ds.id, { ...fields, type: selectedType });
+        }
+
+        dsId = ds.id;
+        onConnected(dsId);
       }
-
-      onConnected(ds.id);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Connection failed';
       setError(msg);
@@ -67,7 +104,6 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
     setLoading(true);
     try {
       const { authUrl } = await generateAuthUrl(user.uid);
-      // Store that we're in OAuth mode so the callback knows to create a data source
       window.sessionStorage.setItem('oauth-connect', user.uid);
       window.location.href = authUrl;
     } catch (err: unknown) {
@@ -78,18 +114,23 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
     }
   };
 
-  // After OAuth callback, auto-fill spreadsheet ID if it came from the callback
   useEffect(() => {
     const info = window.sessionStorage.getItem('oauth-connect-info');
     if (info) {
       try {
         const parsed = JSON.parse(info) as { spreadsheetId: string; name: string };
         setFields((prev) => ({ ...prev, spreadsheetId: parsed.spreadsheetId }));
-        if (parsed.name) setSelectedType('google-sheets'); // re-trigger config rendering
+        if (parsed.name) setSelectedType('google-sheets');
         window.sessionStorage.removeItem('oauth-connect-info');
       } catch { /* ignore */ }
     }
   }, []);
+
+  const handleParsed = (cols: string[], vals: (string | number | boolean | null)[][]) => {
+    setParsedColumns(cols);
+    setParsedValues(vals);
+    setHasFile(true);
+  };
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={onClose}>
@@ -129,9 +170,9 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
               <p className="rounded-lg bg-red-500/10 border border-red-500/20 px-3 py-2 text-xs text-red-400">{error}</p>
             )}
 
-            {/* Special case: CSV upload */}
+            {/* File upload for CSV/XLSX */}
             {selectedType === 'csv-upload' && (
-              <CSVUploadField fields={fields} setFields={setFields} />
+              <FileUploadField hasFile={hasFile} onParsed={handleParsed} />
             )}
 
             {/* Standard config fields */}
@@ -167,6 +208,16 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
               </div>
             )}
 
+            {/* Airtable OAuth button */}
+            {selectedType === 'airtable' && (
+              <div className="rounded-lg border border-dashed border-slate-700 bg-white/[0.02] px-4 py-6 text-center">
+                <a href={`/api/auth/airtable/start?uid=${user.uid}`}
+                  className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-brand-500 transition-colors">
+                  Connect with Airtable
+                </a>
+              </div>
+            )}
+
             {/* Action buttons */}
             <div className="flex items-center justify-end gap-3 pt-2">
               <button onClick={onClose} disabled={loading}
@@ -185,26 +236,40 @@ export function ConnectSourceModal({ onClose, onConnected, initialType }: Connec
   );
 }
 
-function CSVUploadField({ fields, setFields }: { fields: Record<string, string>; setFields: (f: Record<string, string>) => void }) {
+function FileUploadField({ hasFile, onParsed }: { hasFile: boolean; onParsed: (cols: string[], vals: (string | number | boolean | null)[][]) => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   return (
     <div className="space-y-3">
-      <label className="block text-xs font-medium text-slate-400">Upload a CSV file</label>
-      <input ref={fileRef} type="file" accept=".csv"
+      <label className="block text-xs font-medium text-slate-400">Upload a CSV or XLSX file</label>
+      <input ref={fileRef} type="file" accept=".csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         onChange={(e) => {
           const file = e.target.files?.[0];
           if (!file) return;
+
           const reader = new FileReader();
           reader.onload = (ev) => {
-            setFields({ ...fields, csvContent: ev.target?.result as string });
+            const buffer = ev.target?.result as ArrayBuffer;
+            const isXlsx = file.name.toLowerCase().endsWith('.xlsx');
+
+            let cols: string[];
+            let vals: (string | number | boolean | null)[][];
+
+            if (isXlsx) {
+              ({ columns: cols, values: vals } = parseXLSX(buffer));
+            } else {
+              const text = new TextDecoder().decode(buffer);
+              ({ columns: cols, values: vals } = parseCSVRaw(text));
+            }
+
+            onParsed(cols, vals);
           };
-          reader.readAsText(file);
+          reader.readAsArrayBuffer(file);
         }}
         className="hidden" />
       <label onClick={() => fileRef.current?.click()}
         className="flex h-24 cursor-pointer items-center justify-center rounded-xl border border-dashed border-slate-700 text-sm text-slate-500 hover:border-slate-500 hover:text-slate-300 transition-all">
-        {fields.csvContent ? '✓ CSV uploaded — click to change' : '+ Click or drag a CSV file here'}
+        {hasFile ? '✓ File uploaded — click to change' : '+ Click or drag a CSV / XLSX file here'}
       </label>
     </div>
   );

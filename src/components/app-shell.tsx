@@ -12,15 +12,30 @@ import { SavedQueriesView } from '@/components/saved-queries-view';
 
 type View = 'dashboard' | 'connections' | 'alerts' | 'saved-queries' | 'settings';
 
+function getSavedModelProvider(): 'ollama' | 'anthropic' {
+  if (typeof localStorage === 'undefined') return 'ollama';
+  const saved = localStorage.getItem('modelProvider');
+  return saved === 'ollama' || saved === 'anthropic' ? saved : 'ollama';
+}
+
 export function AppShell() {
   const [activeView, setActiveView] = useState<View>('dashboard');
-  const [modelProvider, setModelProvider] = useState<'ollama' | 'anthropic'>('ollama');
+  const [modelProvider, setModelProvider] = useState<'ollama' | 'anthropic'>(getSavedModelProvider());
   const [restoreQuery, setRestoreQuery] = useState<{ question: string; sql?: string } | null>(null);
 
   // Pass restored query to dashboard chat when needed
   const handleRestore = (question: string, sql?: string) => {
     setRestoreQuery({ question, sql });
     setActiveView('dashboard');
+  };
+
+  // Persist model provider to localStorage on every change
+  const toggleModelProvider = () => {
+    setModelProvider((p) => {
+      const next = p === 'ollama' ? 'anthropic' : 'ollama';
+      if (typeof localStorage !== 'undefined') localStorage.setItem('modelProvider', next);
+      return next;
+    });
   };
 
   return (

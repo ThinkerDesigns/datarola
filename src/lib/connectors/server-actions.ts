@@ -100,3 +100,17 @@ export async function uploadCSV(uid: string, fileName: string, fileContent: stri
   }
   return { id, name: fileName, type: 'csv-upload', status: 'connected', createdAt: Date.now(), updatedAt: Date.now() };
 }
+
+export async function uploadRows(uid: string, fileName: string, columns: string[], values: (string | number | boolean | null)[][], dsId?: string): Promise<DataSource> {
+  const id = dsId ?? `rows_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  await setDoc(doc(_db, 'users', uid, 'dataSources', id), {
+    name: fileName, type: 'csv-upload' as const, status: 'connected' as const,
+    createdAt: Date.now(), updatedAt: Date.now(), rowCount: values.length,
+  });
+  for (const row of values) {
+    await addDoc(collection(_db, 'users', uid, 'dataSources', id, 'rows'), {
+      columns, values: row, syncedAt: Date.now(),
+    });
+  }
+  return { id, name: fileName, type: 'csv-upload', status: 'connected', createdAt: Date.now(), updatedAt: Date.now() };
+}

@@ -8,15 +8,23 @@ import { useDataSources } from '@/lib/use-data-sources';
 import { db } from '@/lib/firebase';
 import { auth } from '@/lib/firebase';
 
+function getSaved(key: string, fallback: string) {
+  if (typeof localStorage === 'undefined') return fallback;
+  return localStorage.getItem(key) ?? fallback;
+}
+
 export function SettingsView() {
-  const [modelProvider, setModelProvider] = useState<'ollama' | 'anthropic'>('ollama');
+  const [modelProvider, setModelProvider] = useState<'ollama' | 'anthropic'>(getSaved('modelProvider', 'ollama') as 'ollama' | 'anthropic');
+  const [ollamaBaseUrl, setOllamaBaseUrl] = useState(getSaved('ollamaBaseUrl', 'http://localhost:11434'));
+  const [anthropicApiKey, setAnthropicApiKey] = useState(getSaved('anthropicApiKey', ''));
   const [alertEmail, setAlertEmail] = useState('');
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
+  const [saved, setSaved] = useState(false);
   const { user } = useAuth();
   const dataSources = useDataSources(user?.uid ?? null);
 
-  // Read user profile from Firestore
+  // Read user profile from Firestore — overrides localStorage defaults
   useEffect(() => {
     if (user && db) {
       getDoc(doc(db, 'users', user.uid)).then((snap) => {
@@ -25,6 +33,12 @@ export function SettingsView() {
           setPlan((d.plan === 'pro' ? 'pro' : 'free') as 'free' | 'pro');
           setAlertEmail((d.alertEmail as string) ?? '');
           setAlertsEnabled(!!d.alertsEnabled);
+          if (d.modelProvider === 'ollama' || d.modelProvider === 'anthropic') {
+            setModelProvider(d.modelProvider);
+            localStorage.setItem('modelProvider', d.modelProvider);
+          }
+          if (d.ollamaBaseUrl && typeof d.ollamaBaseUrl === 'string') setOllamaBaseUrl(d.ollamaBaseUrl);
+          if (d.anthropicApiKey && typeof d.anthropicApiKey === 'string') setAnthropicApiKey(d.anthropicApiKey);
         }
       });
     }
@@ -33,9 +47,21 @@ export function SettingsView() {
   const handleSaveSettings = async () => {
     if (!user || !db) return;
     await updateDoc(doc(db, 'users', user.uid), {
-      alertEmail, alertsEnabled, modelProvider: modelProvider === 'ollama' ? 'ollama' : 'anthropic',
+      modelProvider,
+      ollamaBaseUrl,
+      anthropicApiKey,
+      alertEmail,
+      alertsEnabled,
       updatedAt: Date.now(),
     });
+    // Persist to localStorage for instant availability (even without Firebase)
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem('modelProvider', modelProvider);
+      localStorage.setItem('ollamaBaseUrl', ollamaBaseUrl);
+      localStorage.setItem('anthropicApiKey', anthropicApiKey);
+    }
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
   };
 
   const handleDeleteAccount = async () => {
@@ -66,10 +92,30 @@ export function SettingsView() {
         <div className="flex items-center gap-3">
           {(['ollama', 'anthropic'] as const).map((p) => (
             <button key={p} onClick={() => setModelProvider(p)}
-              className={`rounded-lg px-4 py-2 text-sm font-medium transition-all ${modelProvider === p ? 'bg-brand-600/20 text-brand-400 border border-brand-500/30' : 'bg-white/[0.03] text-slate-500 border border-white/5 hover:text-slate-300'}`}>
+              className={`rounded-lg px-5 py-2 text-sm font-medium transition-all ${modelProvider === p ? 'bg-brand-600 text-white shadow-lg shadow-brand-500/10' : 'bg-white/[0.03] text-slate-400 border border-white/5 hover:bg-white/[0.06] hover:text-slate-300'}`}>
               {p === 'ollama' ? 'Ollama (local)' : 'Anthropic API'}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* API Configuration */}
+      <div className="rounded-xl border border-white/5 bg-white/[0.02] p-6 space-y-4">
+        <h3 className="text-sm font-medium text-white">API Configuration</h3>
+        <p className="text-xs text-slate-500 leading-relaxed">
+          Configure your model providers. These values are saved to your account and loaded automatically on every device.
+        </p>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Ollama Base URL</label>
+          <input type="text" value={ollamaBaseUrl} onChange={(e) => setOllamaBaseUrl(e.target.value)}
+            placeholder="http://localhost:11434"
+            className="w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50 placeholder:text-slate-600" />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400">Anthropic API Key</label>
+          <input type="password" value={anthropicApiKey} onChange={(e) => setAnthropicApiKey(e.target.value)}
+            placeholder="sk-ant-..."
+            className="w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50 placeholder:text-slate-600" />
         </div>
       </div>
 

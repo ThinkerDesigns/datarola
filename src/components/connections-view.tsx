@@ -68,7 +68,7 @@ export function ConnectionsView() {
     rows: ds.rowCount ? `~${ds.rowCount.toLocaleString()}` : '~0',
   }));
 
-  const allAvailable: ConnectorType[] = ['bigquery', 'snowflake', 'postgresql', 'mysql', 'redshift'];
+  const allAvailable: ConnectorType[] = ['airtable', 'bigquery', 'snowflake', 'postgresql', 'mysql', 'redshift'];
 
   const handleDisconnect = async (dsId: string, name: string) => {
     if (!user) return;
