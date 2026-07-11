@@ -1,13 +1,12 @@
 'use client';
 
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
   signInWithPopup,
+  getRedirectResult,
   signOut as fbSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
-  setPersistence,
-  browserSessionPersistence,
   type User,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -54,50 +53,41 @@ function getDevName(): string {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const didInitRef = useRef(false);
 
-  // Initialize: set persistence and listen for auth changes. Never sign out during mount.
+  // Browser-only: set up auth listener once on mount.
   useEffect(() => {
-    if (didInitRef.current) return;
-    didInitRef.current = true;
+    if (typeof window === 'undefined') return;
 
-    // Use session-only persistence to prevent stored tokens from auto-restoring.
-    if (firebaseAuth) {
-      setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {});
-    }
+    if (!firebaseAuth) return;
 
-    // Set up auth listener last — it only fires on actual state changes now.
-    if (firebaseAuth) {
-      return onAuthStateChanged(firebaseAuth, (u) => {
-        console.log('[auth] user changed:', u?.displayName ?? 'null');
-        setUser(u);
-        setLoading(false);
-      });
-    }
+    // Consume any pending redirect result FIRST (Google OAuth callback).
+    getRedirectResult(firebaseAuth)
+      .then((result) => {
+        if (result && result.user) {
+          console.log('[auth] redirect consumed:', result.user.displayName ?? 'no name');
+        }
+      })
+      .catch(() => {});
 
-    // Dev fallback — no Firebase configured. Identity from localStorage only.
-    const uid = getDevUid();
-    const name = getDevName() || 'Anonymous';
-    setUser({
-      uid, email: 'user@localhost', displayName: name, emailVerified: false, isAnonymous: true,
-      metadata: { creationTime: '', lastSignInTime: '' }, providerData: [], refreshToken: '',
-      tenantId: null, toJSON() { return {}; }, get accessToken() { return ''; },
-      getIdToken() { return Promise.resolve(''); }, getIdTokenResult() { return Promise.resolve({} as any); },
-      reload() { return Promise.resolve(); }, delete() { return Promise.resolve(); },
-    } as unknown as User);
-    setLoading(false);
+    // Then listen for auth state changes.
+    const unsub = onAuthStateChanged(firebaseAuth, (u) => {
+      console.log('[auth] user changed:', u?.displayName ?? 'null');
+      setUser(u);
+      setLoading(false);
+    });
+
+    return () => { if (unsub) unsub(); };
   }, []);
 
-  // Capture for TS narrowing — the ternary doesn't narrow module-level exports.
+  // Capture for TS narrowing.
   const fb = firebaseAuth;
 
   const signInWithGoogle: AuthState['signInWithGoogle'] = fb
     ? async () => {
         console.log('[auth] signing in with Google...');
-        await setPersistence(fb, browserSessionPersistence);
         const provider = new GoogleAuthProvider();
         const cred = await signInWithPopup(fb, provider);
-        console.log('[auth] Google login complete:', cred.user.displayName ?? 'no display name');
+        console.log('[auth] Google login complete:', cred.user.displayName ?? 'no name');
         setUser(cred.user);
         syncUser(cred.user);
       }

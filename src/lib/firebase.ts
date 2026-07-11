@@ -1,4 +1,4 @@
-// ponytail: minimal Firebase init — auth (email/password + Google) + Firestore only.
+// ponytail: minimal Firebase init — auth + Firestore only.
 // db is initialized for BOTH browser and server contexts (needed for server actions).
 // Auth/persistence remains browser-only since it needs localStorage/window.
 
@@ -67,37 +67,12 @@ if (appInstance) {
   }
 }
 
-// Auth is browser-only. CRITICAL: Clear ALL persistence tokens BEFORE setting session-only mode.
-// Previous auth might have used browserLocalPersistence which stores tokens in IndexedDB —
-// setPersistence doesn't remove existing tokens, it only sets the policy for future ones.
+// Auth is browser-only. Must set session-only persistence to prevent stored tokens from
+// auto-restoring on every page load (causes sign-in page auto-login bypass).
 export let auth: ReturnType<typeof getAuth> | null = null;
 if (isBrowser && appInstance) {
   try {
     const rawAuth = getAuth(appInstance);
-
-    // Force a sign-out first to clear any in-memory state.
-    // This ensures the session is completely reset before we set new persistence.
-    if (typeof window !== 'undefined') {
-      // Remove all Firebase auth tokens from localStorage
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith('firebase:authUser:')) {
-          localStorage.removeItem(key);
-        }
-      }
-    }
-
-    // Clear any stored auth state from IndexedDB.
-    try {
-      const indexedDBKey = `firebaseLocalStorageDb`;
-      const request = indexedDB.deleteDatabase(indexedDBKey);
-      request.onsuccess = () => {};
-      request.onerror = () => {};
-    } catch {
-      // Ignore errors — the DB might not exist or be accessible
-    }
-
-    // Now set session-only persistence for future auth operations.
     setPersistence(rawAuth, browserSessionPersistence).catch(() => {});
     auth = rawAuth;
   } catch {
