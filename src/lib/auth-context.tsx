@@ -1,27 +1,21 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, useRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import {
-  createUserWithEmailAndPassword,
-  signInWithEmailAndPassword,
   signInWithPopup,
   signOut as fbSignOut,
   onAuthStateChanged,
   GoogleAuthProvider,
+  setPersistence,
+  browserSessionPersistence,
   type User,
-  type UserCredential,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
-import { auth, db } from '@/lib/firebase';
-
-// ponytail: if Firebase is not configured yet, fall back to mock auth for development
-const IS_CONFIGURED = !!auth;
+import { auth as firebaseAuth, db } from '@/lib/firebase';
 
 interface AuthState {
   user: User | null;
   loading: boolean;
-  signIn: (email: string, password: string) => Promise<UserCredential>;
-  signUp: (email: string, password: string) => Promise<void>;
   signInWithGoogle: () => Promise<void>;
   signOut: () => Promise<void>;
 }
@@ -31,7 +25,7 @@ const Ctx = createContext<AuthState>({} as AuthState);
 export function useAuth() { return useContext(Ctx); }
 
 function syncUser(user: User): void {
-  if (!IS_CONFIGURED || !db) return; // skip in dev without config
+  if (!db) return;
   setDoc(doc(db, 'users', user.uid), {
     email: user.email ?? '',
     displayName: user.displayName ?? null,
@@ -42,101 +36,106 @@ function syncUser(user: User): void {
   }, { merge: true }).catch(() => {});
 }
 
+function getDevUid(): string {
+  if (typeof localStorage === 'undefined') return `dev-${Date.now()}`;
+  let uid = localStorage.getItem('dr_dev_uid');
+  if (!uid) {
+    uid = crypto.randomUUID ? crypto.randomUUID() : `dev-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    localStorage.setItem('dr_dev_uid', uid);
+  }
+  return uid;
+}
+
+function getDevName(): string {
+  if (typeof localStorage === 'undefined') return '';
+  return localStorage.getItem('dr_dev_name') ?? '';
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const devClaimed = useRef(false);
+  const didInitRef = useRef(false);
 
+  // Initialize: set persistence and listen for auth changes. Never sign out during mount.
   useEffect(() => {
-    if (!auth) {
-      // Dev fallback: when Firebase isn't configured, pretend we signed in as alice@company.com
-      // Only set once per mount — prevents re-setting after signOut.
-      if (devClaimed.current) return;
-      devClaimed.current = true;
-      setUser({
-        uid: 'dev-user-001',
-        email: 'alice@company.com',
-        displayName: 'Alice Chen',
-        emailVerified: true,
-        isAnonymous: false,
-        metadata: { creationTime: '', lastSignInTime: '' },
-        providerData: [],
-        refreshToken: '',
-        tenantId: null,
-        toJSON() { return {}; },
-        get accessToken() { return ''; },
-        getIdToken() { return Promise.resolve(''); },
-        getIdTokenResult() { return Promise.resolve({} as any); },
-        reload() { return Promise.resolve(); },
-        delete() { return Promise.resolve(); },
-      } as unknown as User);
-      setLoading(false);
-      return;
+    if (didInitRef.current) return;
+    didInitRef.current = true;
+
+    // Use session-only persistence to prevent stored tokens from auto-restoring.
+    if (firebaseAuth) {
+      setPersistence(firebaseAuth, browserSessionPersistence).catch(() => {});
     }
-    return onAuthStateChanged(auth, (u) => {
-      setUser(u);
-      if (u) syncUser(u);
-      setLoading(false);
-    });
+
+    // Set up auth listener last — it only fires on actual state changes now.
+    if (firebaseAuth) {
+      return onAuthStateChanged(firebaseAuth, (u) => {
+        console.log('[auth] user changed:', u?.displayName ?? 'null');
+        setUser(u);
+        setLoading(false);
+      });
+    }
+
+    // Dev fallback — no Firebase configured. Identity from localStorage only.
+    const uid = getDevUid();
+    const name = getDevName() || 'Anonymous';
+    setUser({
+      uid, email: 'user@localhost', displayName: name, emailVerified: false, isAnonymous: true,
+      metadata: { creationTime: '', lastSignInTime: '' }, providerData: [], refreshToken: '',
+      tenantId: null, toJSON() { return {}; }, get accessToken() { return ''; },
+      getIdToken() { return Promise.resolve(''); }, getIdTokenResult() { return Promise.resolve({} as any); },
+      reload() { return Promise.resolve(); }, delete() { return Promise.resolve(); },
+    } as unknown as User);
+    setLoading(false);
   }, []);
 
-  // Dev mock user — shared reference so we can clear it consistently
-  const devUser = {
-    uid: 'dev-user-001',
-    email: 'alice@company.com',
-    displayName: 'Alice Chen',
-    emailVerified: true,
-    isAnonymous: false,
-    metadata: { creationTime: '', lastSignInTime: '' },
-    providerData: [],
-    refreshToken: '',
-    tenantId: null,
-    toJSON() { return {}; },
-    get accessToken() { return ''; },
-    getIdToken() { return Promise.resolve(''); },
-    getIdTokenResult() { return Promise.resolve({} as any); },
-    reload() { return Promise.resolve(); },
-    delete() { return Promise.resolve(); },
-  } as unknown as User;
+  // Capture for TS narrowing — the ternary doesn't narrow module-level exports.
+  const fb = firebaseAuth;
 
-  // When Firebase isn't configured (dev without .env), use stubs that pretend auth works.
-  const devSignOut = async () => { setUser(null); setLoading(false); };
-
-  const signIn: AuthState['signIn'] = IS_CONFIGURED
-    ? (email, password) => signInWithEmailAndPassword(auth!, email, password)
-    : (async (_email: string, _password: string) => {
-        setUser(devUser); setLoading(false); return {} as any;
-      }) as AuthState['signIn'];
-
-  const signUp: AuthState['signUp'] = IS_CONFIGURED
-    ? async (email, password) => {
-        const cred = await createUserWithEmailAndPassword(auth!, email, password);
-        syncUser(cred.user);
-      }
-    : (async () => { setUser(devUser); setLoading(false); }) as AuthState['signUp'];
-
-  const signInWithGoogle: AuthState['signInWithGoogle'] = IS_CONFIGURED
+  const signInWithGoogle: AuthState['signInWithGoogle'] = fb
     ? async () => {
+        console.log('[auth] signing in with Google...');
+        await setPersistence(fb, browserSessionPersistence);
         const provider = new GoogleAuthProvider();
-        const cred = await signInWithPopup(auth!, provider);
+        const cred = await signInWithPopup(fb, provider);
+        console.log('[auth] Google login complete:', cred.user.displayName ?? 'no display name');
+        setUser(cred.user);
         syncUser(cred.user);
       }
-    : (async () => { setUser(devUser); setLoading(false); }) as AuthState['signInWithGoogle'];
+    : (async () => {
+        let name = getDevName();
+        if (!name) { name = 'Anonymous'; setDevName(name); }
+        const uid = getDevUid();
+        console.log('[auth] dev mode sign-in:', name);
+        setUser({
+          uid, email: 'user@localhost', displayName: name, emailVerified: false, isAnonymous: true,
+          metadata: { creationTime: '', lastSignInTime: '' }, providerData: [], refreshToken: '',
+          tenantId: null, toJSON() { return {}; }, get accessToken() { return ''; },
+          getIdToken() { return Promise.resolve(''); }, getIdTokenResult() { return Promise.resolve({} as any); },
+          reload() { return Promise.resolve(); }, delete() { return Promise.resolve(); },
+        } as unknown as User);
+      }) as AuthState['signInWithGoogle'];
 
-  const signOut: AuthState['signOut'] = IS_CONFIGURED
-    ? () => fbSignOut(auth!)
-    : devSignOut;
+  const signOut: AuthState['signOut'] = fb
+    ? () => fbSignOut(fb)
+    : async () => {
+        setUser(null);
+        setLoading(false);
+      };
 
   return (
     <Ctx.Provider value={{
       user,
       loading,
-      signIn,
-      signUp,
       signInWithGoogle,
       signOut,
     }}>
       {children}
     </Ctx.Provider>
   );
+}
+
+function setDevName(name: string): void {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('dr_dev_name', name);
+  }
 }
