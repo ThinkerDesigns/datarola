@@ -61,7 +61,7 @@ export function TopBar({ modelProvider, onModelToggle }: TopBarProps) {
         {user && (
           <div className="flex items-center gap-2">
             <button
-              onClick={() => signOut()}
+              onClick={async () => { await signOut(); window.location.href = '/'; }}
               className="text-[11px] text-slate-600 hover:text-white transition-colors"
             >
               Sign out

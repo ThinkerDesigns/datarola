@@ -72,6 +72,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // No Firebase — fall back to localStorage dev accounts
       console.warn('[auth-context] Firebase auth unavailable, using local dev accounts');
       const name = getDevName();
+      // Don't auto-login on sign-in/sign-up pages — the form must be visible.
+      // Returning visitors with existing credentials can still use those forms normally.
+      if (name && typeof window !== 'undefined') {
+        const path = window.location.pathname;
+        if (path === '/sign-in' || path === '/sign-up') return;
+      }
       if (name) {
         setUser({
           uid: getDevUid(), email: '', displayName: name, emailVerified: false, isAnonymous: true,
@@ -144,11 +150,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         } as unknown as User);
       };
 
-  const signOut: AuthState['signOut'] = fb
+  const signOut: AuthState['signOut'] = fb && fbReady
     ? () => fbSignOut(fb)
     : async () => {
+        console.log('[auth] dev mode sign-out — clearing user');
         setUser(null);
         setLoading(false);
+        if (typeof window !== 'undefined') {
+          window.location.replace('/');
+        }
       };
 
   return (
