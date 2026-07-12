@@ -28,7 +28,12 @@ function SignUpForm() {
     setLoading(true);
     try {
       await signUpWithEmail(email, password, name);
-      router.push('/app');
+      // Always route new sign-ups through onboarding. Returning users (who have data) go directly to app.
+      if (typeof localStorage !== 'undefined' && !localStorage.getItem('dr_onboarding_complete')) {
+        router.push('/onboarding');
+      } else {
+        router.push('/app');
+      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not create account.';
       if (msg.includes('email-already-in-use')) {

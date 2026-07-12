@@ -107,22 +107,29 @@ export async function exchangeCodeForTokens(code: string, state: string): Promis
     expiry_date?: number;
   };
 
-  // Get spreadsheet info using the access token
+  // Get spreadsheet info using Drive API (more reliable than Sheets API — drive.readonly scope works even when Sheets API isn't enabled on the project).
   let spreadsheetId = '';
-  let spreadsheetName = '';
+  let spreadsheetName = 'Google Sheet';
   try {
-    const sheetRes = await fetch(
-      'https://sheets.googleapis.com/v4/spreadsheets?pageSize=1&orderBy=createdTime',
+    const driveRes = await fetch(
+      'https://www.googleapis.com/drive/v3/files?q=mimeType%3D%27application/vnd.google-apps.spreadsheet%27&pageSize=1&sortBy=createdTime&sortOrder=descending',
       {
         headers: { Authorization: `Bearer ${tokenData.access_token}` },
       }
     );
-    if (sheetRes.ok) {
-      const sheetData = await sheetRes.json() as { spreadsheets?: Array<{ id: string; spreadsheetName: string }> };
-      spreadsheetId = sheetData.spreadsheets?.[0]?.id ?? '';
-      spreadsheetName = sheetData.spreadsheets?.[0]?.spreadsheetName ?? 'Sheet';
+    if (driveRes.ok) {
+      const driveData = await driveRes.json() as { files?: Array<{ id: string; name: string }> };
+      if (driveData.files?.[0]) {
+        spreadsheetId = driveData.files[0].id;
+        spreadsheetName = driveData.files[0].name || 'Google Sheet';
+      }
+    } else {
+      const errText = await driveRes.text();
+      console.error('[oauth] drive.files.list failed:', driveRes.status, errText);
     }
-  } catch { /* non-critical — can still use the data source without sheet info */ }
+  } catch (err) {
+    console.error('[oauth] drive.files.list exception:', err instanceof Error ? err.message : err);
+  }
 
   // Store tokens in Firestore for future refresh
   if (db) {

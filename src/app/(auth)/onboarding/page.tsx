@@ -45,6 +45,11 @@ function OnboardingShell() {
     );
   }
 
+  const skipForNow = () => {
+    if (typeof localStorage !== 'undefined') localStorage.setItem('dr_onboarding_complete', '1');
+    router.push('/app');
+  };
+
   return (
     <>
       {step === 0 ? (
@@ -52,7 +57,7 @@ function OnboardingShell() {
       ) : step === 1 ? (
         <WelcomeStep onNext={() => setStep(2)} />
       ) : (
-        <ConnectStep onBack={() => setStep(1)} />
+        <ConnectStep onBack={() => setStep(1)} onSkip={skipForNow} />
       )}
     </>
   );
@@ -189,7 +194,7 @@ function WelcomeStep({ onNext }: { onNext: () => void }) {
   );
 }
 
-function ConnectStep({ onBack }: { onBack: () => void }) {
+function ConnectStep({ onBack, onSkip }: { onBack: () => void; onSkip: () => void }) {
   const [selectedType, setSelectedType] = useState<string>('');
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#0a0e1a] px-4">
@@ -217,6 +222,15 @@ function ConnectStep({ onBack }: { onBack: () => void }) {
             </button>
           ))}
         </div>
+
+        <div className="mt-8 flex justify-center gap-4">
+          <button
+            onClick={onSkip}
+            className="text-sm text-slate-500 hover:text-slate-300 underline underline-offset-2 transition-colors"
+          >
+            Skip for now — go to dashboard
+          </button>
+        </div>
       </div>
 
       {selectedType && (
@@ -224,6 +238,7 @@ function ConnectStep({ onBack }: { onBack: () => void }) {
           initialType={selectedType as any}
           onClose={() => setSelectedType('')}
           onConnected={() => {
+            if (typeof localStorage !== 'undefined') localStorage.setItem('dr_onboarding_complete', '1');
             setSelectedType('');
             window.location.href = '/app';
           }}

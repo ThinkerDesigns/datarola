@@ -24,7 +24,8 @@ export async function GET(req: NextRequest) {
       throw new Error('Airtable OAuth credentials not configured');
     }
 
-    // Exchange authorization code for access token
+    // Exchange authorization code for access token — include PKCE verifier from cookie
+    const pkceVerifier = req.cookies.get('airtable_pkce_verifier')?.value ?? '';
     const tokenRes = await fetch('https://airtable.com/oauth2/v1/token', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -34,6 +35,7 @@ export async function GET(req: NextRequest) {
         client_secret: clientSecret,
         redirect_uri: redirectUri,
         code,
+        code_verifier: pkceVerifier,
       }),
     });
 

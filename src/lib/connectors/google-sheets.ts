@@ -9,10 +9,16 @@ export async function syncGoogleSheet(params: {
   range: string;
   accessToken: string;
 }): Promise<{ columns: string[]; rows: (string | number | boolean | null)[][]; rowCount: number }> {
+  if (!params.spreadsheetId) throw new Error('spreadsheetId is required');
+
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${params.spreadsheetId}/values/${params.range}?access_token=${encodeURIComponent(params.accessToken)}`;
 
+  console.log('[sheets] fetching:', url.replace(params.accessToken, '[TOKEN]'));
   const res = await fetch(url, { next: { revalidate: 300 } }); // 5 min cache
-  if (!res.ok) throw new Error(`Google Sheets API error: ${res.status} ${await res.text()}`);
+  if (!res.ok) {
+    const body = await res.text();
+    throw new Error(`Google Sheets API error ${res.status}: ${body}. Make sure the Google Sheets API is enabled in your Cloud Console.`);
+  }
 
   const json = await res.json() as { values?: unknown[][] };
   const raw: unknown[][] = json.values ?? [];

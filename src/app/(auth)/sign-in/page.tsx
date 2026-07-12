@@ -27,7 +27,12 @@ function SignInForm() {
     setLoading(true);
     try {
       await signInWithEmail(email, password);
-      router.push('/app');
+      // Only send through onboarding if they haven't completed it yet. Returning users go straight to app.
+      if (typeof localStorage !== 'undefined' && !localStorage.getItem('dr_onboarding_complete')) {
+        router.push('/onboarding');
+      } else {
+        router.push('/app');
+      }
     } catch {
       setError('Invalid email or password. Make sure you have created an account first.');
     } finally {

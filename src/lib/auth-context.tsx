@@ -153,10 +153,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut: AuthState['signOut'] = fb && fbReady
     ? () => fbSignOut(fb)
     : async () => {
-        console.log('[auth] dev mode sign-out — clearing user');
+        console.log('[auth] dev mode sign-out — clearing local data');
         setUser(null);
         setLoading(false);
         if (typeof window !== 'undefined') {
+          localStorage.removeItem('dr_dev_uid');
+          localStorage.removeItem('dr_dev_name');
+          localStorage.removeItem('dr_plan');
+          localStorage.removeItem('dr_connections');
           window.location.replace('/');
         }
       };
