@@ -67,8 +67,7 @@ if (appInstance) {
   }
 }
 
-// Auth is browser-only. Must set session-only persistence to prevent stored tokens from
-// auto-restoring on every page load (causes sign-in page auto-login bypass).
+// Auth is browser-only.
 export let auth: ReturnType<typeof getAuth> | null = null;
 if (isBrowser && appInstance) {
   try {
@@ -76,6 +75,7 @@ if (isBrowser && appInstance) {
     setPersistence(rawAuth, browserSessionPersistence).catch(() => {});
     auth = rawAuth;
   } catch {
-    auth = null;
+    // If persistence fails, the auth instance is still valid — don't lose it.
+    auth = getAuth(appInstance);
   }
 }

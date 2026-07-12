@@ -11,25 +11,6 @@ const tiers = [
     href: '/app',
     highlighted: false,
   },
-  {
-    name: 'Paid',
-    desc: 'For teams that need more power.',
-    price: 'TBD',
-    period: 'per month',
-    features: [
-      'Unlimited data sources',
-      'Unlimited queries',
-      'Advanced anomaly detection',
-      'Scheduled reports (daily / weekly)',
-      'Proactive insight agent',
-      'Email + Slack / Teams alerts',
-      'Team collaboration',
-      'Priority support',
-    ],
-    cta: 'Join waitlist',
-    href: '#',
-    highlighted: true,
-  },
 ];
 
 export function PricingSection() {
@@ -41,11 +22,11 @@ export function PricingSection() {
             Simple pricing that scales with you
           </h2>
           <p className="mt-4 text-lg text-slate-400">
-            Start free. Upgrade when your team needs it. Pricing finalized during testing phase.
+            Start free. Upgrade when your team needs it.
           </p>
         </div>
 
-        <div className="grid gap-8 md:grid-cols-2">
+        <div className="grid gap-8 md:grid-cols-1 max-w-md mx-auto">
           {tiers.map((tier) => (
             <div
               key={tier.name}
@@ -55,12 +36,6 @@ export function PricingSection() {
                   : 'border-white/10 bg-white/[0.02]'
               }`}
             >
-              {tier.highlighted && (
-                <span className="absolute -top-3 left-6 rounded-full bg-brand-600 px-3 py-0.5 text-xs font-medium text-white">
-                  Recommended
-                </span>
-              )}
-
               <h3 className="text-xl font-semibold text-white">{tier.name}</h3>
               <p className="mt-1 text-sm text-slate-400">{tier.desc}</p>
 
@@ -93,10 +68,6 @@ export function PricingSection() {
             </div>
           ))}
         </div>
-
-        <p className="mt-8 text-center text-xs text-slate-600">
-          Stripe-powered checkout. Cancel anytime. All features listed for Paid tier confirmed during testing.
-        </p>
       </div>
     </section>
   );

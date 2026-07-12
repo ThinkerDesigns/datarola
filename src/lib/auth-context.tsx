@@ -2,11 +2,11 @@
 
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import {
-  signInWithPopup,
-  getRedirectResult,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   signOut as fbSignOut,
   onAuthStateChanged,
-  GoogleAuthProvider,
+  updateProfile,
   type User,
 } from 'firebase/auth';
 import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
@@ -15,7 +15,8 @@ import { auth as firebaseAuth, db } from '@/lib/firebase';
 interface AuthState {
   user: User | null;
   loading: boolean;
-  signInWithGoogle: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<void>;
+  signUpWithEmail: (email: string, password: string, name: string) => Promise<void>;
   signOut: () => Promise<void>;
 }
 
@@ -50,26 +51,41 @@ function getDevName(): string {
   return localStorage.getItem('dr_dev_name') ?? '';
 }
 
+function setDevName(name: string): void {
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem('dr_dev_name', name);
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  // Track whether Firebase auth is actually working
+  const [fbReady, setFbReady] = useState(false);
 
-  // Browser-only: set up auth listener once on mount.
   useEffect(() => {
     if (typeof window === 'undefined') return;
+    console.log('[auth-context] firebaseAuth:', !!firebaseAuth);
+    console.log('[auth-context] db:', !!db);
 
-    if (!firebaseAuth) return;
+    if (!firebaseAuth) {
+      // No Firebase — fall back to localStorage dev accounts
+      console.warn('[auth-context] Firebase auth unavailable, using local dev accounts');
+      const name = getDevName();
+      if (name) {
+        setUser({
+          uid: getDevUid(), email: '', displayName: name, emailVerified: false, isAnonymous: true,
+          metadata: { creationTime: '', lastSignInTime: '' }, providerData: [], refreshToken: '',
+          tenantId: null, toJSON() { return {}; }, get accessToken() { return ''; },
+          getIdToken() { return Promise.resolve(''); }, getIdTokenResult() { return Promise.resolve({} as any); },
+          reload() { return Promise.resolve(); }, delete() { return Promise.resolve(); },
+        } as unknown as User);
+      }
+      setLoading(false);
+      setFbReady(true);
+      return;
+    }
 
-    // Consume any pending redirect result FIRST (Google OAuth callback).
-    getRedirectResult(firebaseAuth)
-      .then((result) => {
-        if (result && result.user) {
-          console.log('[auth] redirect consumed:', result.user.displayName ?? 'no name');
-        }
-      })
-      .catch(() => {});
-
-    // Then listen for auth state changes.
     const unsub = onAuthStateChanged(firebaseAuth, (u) => {
       console.log('[auth] user changed:', u?.displayName ?? 'null');
       setUser(u);
@@ -79,31 +95,54 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => { if (unsub) unsub(); };
   }, []);
 
-  // Capture for TS narrowing.
+  // Set fbReady flag after mount so we know FB was attempted
+  useEffect(() => {
+    setFbReady(true);
+  }, []);
+
   const fb = firebaseAuth;
 
-  const signInWithGoogle: AuthState['signInWithGoogle'] = fb
-    ? async () => {
-        console.log('[auth] signing in with Google...');
-        const provider = new GoogleAuthProvider();
-        const cred = await signInWithPopup(fb, provider);
-        console.log('[auth] Google login complete:', cred.user.displayName ?? 'no name');
+  const signInWithEmail: AuthState['signInWithEmail'] = fb && fbReady
+    ? async (email, password) => {
+        console.log('[auth] signing in with email:', email);
+        const cred = await signInWithEmailAndPassword(fb, email, password);
         setUser(cred.user);
         syncUser(cred.user);
       }
-    : (async () => {
-        let name = getDevName();
-        if (!name) { name = 'Anonymous'; setDevName(name); }
-        const uid = getDevUid();
-        console.log('[auth] dev mode sign-in:', name);
+    : async (_email, _password) => {
+        // Dev fallback: create local account
+        console.log('[auth] dev mode sign-in');
+        const name = getDevName() || 'Anonymous';
+        if (!getDevName()) setDevName(name);
         setUser({
-          uid, email: 'user@localhost', displayName: name, emailVerified: false, isAnonymous: true,
+          uid: getDevUid(), email: _email, displayName: name, emailVerified: false, isAnonymous: true,
           metadata: { creationTime: '', lastSignInTime: '' }, providerData: [], refreshToken: '',
           tenantId: null, toJSON() { return {}; }, get accessToken() { return ''; },
           getIdToken() { return Promise.resolve(''); }, getIdTokenResult() { return Promise.resolve({} as any); },
           reload() { return Promise.resolve(); }, delete() { return Promise.resolve(); },
         } as unknown as User);
-      }) as AuthState['signInWithGoogle'];
+      };
+
+  const signUpWithEmail: AuthState['signUpWithEmail'] = fb && fbReady
+    ? async (email, password, name) => {
+        console.log('[auth] creating account for:', email);
+        const cred = await createUserWithEmailAndPassword(fb, email, password);
+        if (cred.user && name) await updateProfile(cred.user, { displayName: name });
+        setUser(cred.user);
+        syncUser(cred.user);
+      }
+    : async (_email, _password, _name) => {
+        // Dev fallback: create local account
+        console.log('[auth] dev mode sign-up for:', _email);
+        setDevName(_name || 'Anonymous');
+        setUser({
+          uid: getDevUid(), email: _email, displayName: _name || 'Anonymous', emailVerified: false, isAnonymous: true,
+          metadata: { creationTime: '', lastSignInTime: '' }, providerData: [], refreshToken: '',
+          tenantId: null, toJSON() { return {}; }, get accessToken() { return ''; },
+          getIdToken() { return Promise.resolve(''); }, getIdTokenResult() { return Promise.resolve({} as any); },
+          reload() { return Promise.resolve(); }, delete() { return Promise.resolve(); },
+        } as unknown as User);
+      };
 
   const signOut: AuthState['signOut'] = fb
     ? () => fbSignOut(fb)
@@ -113,19 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       };
 
   return (
-    <Ctx.Provider value={{
-      user,
-      loading,
-      signInWithGoogle,
-      signOut,
-    }}>
+    <Ctx.Provider value={{ user, loading, signInWithEmail, signUpWithEmail, signOut }}>
       {children}
     </Ctx.Provider>
   );
-}
-
-function setDevName(name: string): void {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem('dr_dev_name', name);
-  }
 }

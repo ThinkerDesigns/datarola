@@ -104,15 +104,17 @@ export function ChatInput({ restoreQuery }: ChatInputProps) {
         </div>
       )}
 
-      {/* Previous conversation */}
+      {/* Chat history — only shown when there are actual results */}
       <div className="space-y-3 mb-2">
-        {/* Mock previous message */}
-        <div className="flex gap-3">
-          <div className="h-6 w-6 shrink-0 rounded-full bg-brand-600 flex items-center justify-center text-[10px] font-medium text-white">Y</div>
-          <div className="rounded-lg bg-white/[0.05] px-3 py-2 text-sm text-slate-300 max-w-xl">
-            Show me revenue by product category for last month
+        {result && (
+          // User question — shown alongside result
+          <div className="flex gap-3">
+            <div className="h-6 w-6 shrink-0 rounded-full bg-brand-600 flex items-center justify-center text-[10px] font-medium text-white">Y</div>
+            <div className="rounded-lg bg-white/[0.05] px-3 py-2 text-sm text-slate-300 max-w-xl">
+              {queryText}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* AI response with real data */}
         {result && !error && (

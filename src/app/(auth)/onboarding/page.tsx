@@ -61,10 +61,9 @@ function OnboardingShell() {
     if (typeof localStorage !== 'undefined') {
       localStorage.setItem('dr_dev_name', name);
     }
-    // Also update Firebase session if we're using real auth.
+    // Sync displayName to Firestore if real auth is active.
     if (user && user.displayName !== name) {
-      // Firestore will be updated via the server when Google sign-in completes.
-      // For now, save to localStorage which always wins.
+      // localStorage always takes priority in dev mode — no server call needed.
     }
     next();
   }
@@ -75,7 +74,7 @@ function NameStep({ onNext, user }: { onNext: (name: string) => void; user: any 
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // Pre-fill from Google displayName once it arrives.
+  // Auto-fill from auth provider if available.
   useEffect(() => {
     if (user?.displayName) {
       setName(user.displayName);
@@ -144,7 +143,7 @@ function NameStep({ onNext, user }: { onNext: (name: string) => void; user: any 
           </button>
         </form>
 
-        <p className="text-xs text-slate-600">Pre-filled from your Google account — change it if you like.</p>
+        <p className="text-xs text-slate-600">Auto-filled from your sign-up — change it if you like.</p>
       </div>
     </div>
   );

@@ -10,15 +10,28 @@ import type { SavedQuery } from '@/lib/saved-queries';
 export function SavedQueriesView({ onRestore }: { onRestore: (question: string, sql?: string) => void }) {
   const [queries, setQueries] = useState<SavedQuery[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
   const { user } = useAuth();
 
   useEffect(() => {
-    if (!user) return;
-    listSavedQueries(user.uid).then((q) => { setQueries(q); setLoading(false); });
+    if (!user) { setLoading(false); return; }
+    listSavedQueries(user.uid)
+      .then((q) => { setQueries(q); })
+      .catch(() => { setError('Could not load saved queries.'); })
+      .finally(() => { setLoading(false); });
   }, [user]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-16"><div className="h-5 w-5 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" /></div>;
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-lg mx-auto text-center py-16">
+        <p className="text-red-400 text-sm">{error}</p>
+        <p className="text-slate-600 text-xs mt-1">Check your Firebase configuration and try again.</p>
+      </div>
+    );
   }
 
   if (queries.length === 0) {
@@ -52,7 +65,7 @@ export function SavedQueriesView({ onRestore }: { onRestore: (question: string, 
                 className="rounded bg-brand-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-brand-500 transition-colors">
                 Restore
               </button>
-              <button onClick={() => deleteSavedQuery(user?.uid ?? '', q.id).then(() => listSavedQueries(user?.uid ?? '').then(setQueries))}
+              <button onClick={() => deleteSavedQuery(user?.uid ?? '', q.id).then(() => listSavedQueries(user?.uid ?? '').then(setQueries)).catch(() => {})}
                 className="rounded bg-red-500/10 px-3 py-1.5 text-xs font-medium text-red-400 hover:bg-red-500/20 transition-colors">
                 Delete
               </button>

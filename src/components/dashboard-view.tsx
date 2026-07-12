@@ -52,7 +52,7 @@ export function DashboardView({ restoreQuery }: DashboardViewProps) {
       <div className="grid gap-4 sm:grid-cols-3">
         <KpiCard label="Total Rows" value={formatNumber(stats.totalRows)} change={`${stats.activeSources} source${stats.activeSources !== 1 ? 's' : ''}`} up />
         <KpiCard label="Active Sources" value={String(stats.activeSources)} change={`${connected.map((s) => s.name).join(', ') || '—'}`} up />
-        <KpiCard label="Numeric Columns" value={String(Math.max(1, Math.floor(stats.totalRows / 1000)))} change="Auto-detected from data" up />
+        <KpiCard label="Numeric Columns" value={stats.numericCols > 0 ? String(stats.numericCols) : '—'} change={stats.numericCols > 0 ? 'From your data' : 'Connect a source'} up={stats.numericCols > 0} />
       </div>
 
       {/* Chart + anomalies */}

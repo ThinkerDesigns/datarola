@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/auth-context';
 
 interface TopBarProps {
@@ -9,6 +10,21 @@ interface TopBarProps {
 
 export function TopBar({ modelProvider, onModelToggle }: TopBarProps) {
   const { user, signOut } = useAuth();
+  const [queryCount, setQueryCount] = useState('0 / 20');
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const planStr = localStorage.getItem('dr_plan');
+        if (planStr) {
+          const plan = JSON.parse(planStr);
+          setQueryCount(`${Math.min(plan.queriesUsed || 0, plan.queriesPerMonth || 20)} / ${plan.queriesPerMonth || 20}`);
+          return;
+        }
+      } catch { /* ignore */ }
+    }
+  }, []);
+
   const initials = user?.displayName
     ? user.displayName.split(/[\s.]+/).map((w) => w[0]).join('').toUpperCase().slice(0, 2)
     : (user?.email?.slice(0, 2)?.toUpperCase() ?? 'U');
@@ -38,7 +54,7 @@ export function TopBar({ modelProvider, onModelToggle }: TopBarProps) {
         {/* Usage badge */}
         <div className="flex items-center gap-2 rounded-lg border border-white/5 bg-white/[0.03] px-3 py-1.5 text-xs text-slate-400">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12" /></svg>
-          <span>7 / 20 queries used</span>
+          <span>{queryCount}</span>
         </div>
 
         {/* User avatar + sign out */}
