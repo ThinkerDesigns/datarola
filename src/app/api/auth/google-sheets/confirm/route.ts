@@ -1,4 +1,4 @@
-// ponytail: Complete Google Sheets connection after user picks a sheet.
+// ponytail: Complete Google Sheets connection — creates data source doc and syncs rows.
 import { NextRequest, NextResponse } from 'next/server';
 import { doc, setDoc, collection, writeBatch, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
@@ -31,24 +31,32 @@ export async function POST(req: NextRequest) {
   const url = `https://sheets.googleapis.com/v4/spreadsheets/${spreadsheetId}/values/${range}?access_token=${encodeURIComponent(accessToken)}`;
   const res = await fetch(url);
 
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error('[sheets] sync failed:', res.status, errText);
-    // Still create the data source doc even without rows (user can reconnect later)
-  }
-
+  let columns: string[] = [];
   let rowCount = 0;
   if (res.ok) {
     const json = await res.json() as { values?: unknown[][] };
     const raw = json.values ?? [];
-    rowCount = Math.max(0, raw.length - 1); // exclude header row
+    if (raw.length > 0) {
+      columns = (raw[0] as string[]).map(c => c?.toString() ?? '');
+      rowCount = Math.max(0, raw.length - 1); // exclude header row
+
+      // Write rows to Firestore
+      const dsId = `gs_${spreadsheetId}_${Date.now()}`;
+      await setDoc(doc(db, 'users', uid, 'dataSources', dsId), {
+        id: dsId, name: sheetName, type: 'google-sheets', status: rowCount > 0 ? 'connected' : 'syncing',
+        createdAt: Date.now(), updatedAt: Date.now(), spreadsheetId, rowCount, columnCount: columns.length,
+      });
+
+      if (columns.length > 0) {
+        const rowsRef = collection(db, 'users', uid, 'dataSources', dsId, 'rows');
+        const batch = writeBatch(db);
+        for (const row of raw.slice(1)) {
+          batch.set(doc(rowsRef), { columns, values: row, syncedAt: Date.now() });
+        }
+        await batch.commit();
+      }
+    }
   }
 
-  const dsId = `gs_${spreadsheetId}_${Date.now()}`;
-  await setDoc(doc(db, 'users', uid, 'dataSources', dsId), {
-    id: dsId, name: sheetName, type: 'google-sheets', status: rowCount > 0 ? 'connected' : 'error',
-    createdAt: Date.now(), updatedAt: Date.now(), spreadsheetId, rowCount,
-  });
-
-  return NextResponse.json({ ok: true, dsId, rowCount });
+  return NextResponse.json({ ok: true, dsId: `gs_${spreadsheetId}_${Date.now()}`, rowCount, columns });
 }

@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { doc, setDoc, collection, writeBatch } from 'firebase/firestore';
-import { db as firebaseDb } from '@/lib/firebase';
 
 interface SheetInfo { id: string; name: string };
 
@@ -32,25 +30,16 @@ export default function GoogleSheetsPicker() {
     setConnectingId(sheet.id);
     setConnectingName(sheet.name);
     try {
-      if (!firebaseDb) throw new Error('Firebase not configured');
-      const dsId = `gs_${sheet.id}_${Date.now()}`;
-
-      // Create data source doc
-      await setDoc(doc(firebaseDb, 'users', uid, 'dataSources', dsId), {
-        id: dsId, name: sheet.name, type: 'google-sheets', status: 'syncing' as const,
-        createdAt: Date.now(), updatedAt: Date.now(), spreadsheetId: sheet.id,
-      });
-
-      // Sync rows
-      await fetch('/api/auth/google-sheets/sync', {
+      const res = await fetch('/api/auth/google-sheets/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ uid, spreadsheetId: sheet.id, name: sheet.name }),
       });
 
-      await setDoc(doc(firebaseDb, 'users', uid, 'dataSources', dsId), {
-        status: 'connected' as const, updatedAt: Date.now(),
-      }, { merge: true });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Connection failed');
+      }
 
       router.push(`/connections?oauth=success&spreadsheetId=${encodeURIComponent(sheet.id)}&name=${encodeURIComponent(sheet.name)}`);
     } catch (err) {
