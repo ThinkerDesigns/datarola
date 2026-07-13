@@ -21,8 +21,8 @@ export async function getMyDataSources(uid: string): Promise<{ sources: DataSour
 // ── Queries (text-to-SQL) ────────────────────────────────────
 
 /** Call Ollama's /api/generate endpoint. Returns raw response text or null on failure. */
-async function queryOllama(prompt: string): Promise<string | null> {
-  const baseUrl = process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+async function queryOllama(prompt: string, overrideUrl?: string): Promise<string | null> {
+  const baseUrl = overrideUrl || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
   try {
     const res = await fetch(`${baseUrl}/api/generate`, {
       method: 'POST',
@@ -67,6 +67,12 @@ function cleanSql(text: string): string {
 export async function runQuery(uid: string, queryText: string): Promise<Record<string, unknown>> {
   if (!db) throw new Error('Firebase not configured');
 
+  // Fetch user's preferred model provider from their profile settings
+  const userSnap = await getDoc(doc(db, 'users', uid));
+  const userPrefs = userSnap.exists() ? (userSnap.data() as Record<string, unknown>) : {};
+  const preferredProvider = (userPrefs.modelProvider as string) ?? 'ollama'; // default to ollama if not set
+  const customOllamaUrl = (userPrefs.ollamaBaseUrl as string) || process.env.OLLAMA_BASE_URL || 'http://localhost:11434';
+
   // Fetch user's connected sources and their synced rows
   const dsSnap = await getDocs(collection(db, 'users', uid, 'dataSources'));
   const dsIds: string[] = [];
@@ -95,9 +101,16 @@ export async function runQuery(uid: string, queryText: string): Promise<Record<s
   const schema = `Columns: ${maxCols.join(', ')}`;
   const sqlPrompt = `Question: "${queryText}"\n${schema}\nGenerate ONLY a valid ANSI SQL query on a table called "data". No explanation, no markdown.`;
 
-  // Try Ollama first (local, free), fall back to Anthropic if configured
-  let generatedSql = await queryOllama(sqlPrompt);
-  if (!generatedSql) generatedSql = (await queryAnthropic(sqlPrompt)) ?? '';
+  // Use user's preferred model provider (respects settings toggle)
+  let generatedSql: string | null = null;
+  if (preferredProvider === 'anthropic') {
+    generatedSql = await queryAnthropic(sqlPrompt);
+  } else {
+    // Try Ollama first, then fall back to Anthropic (if key configured)
+    generatedSql = await queryOllama(sqlPrompt, customOllamaUrl);
+    if (!generatedSql) generatedSql = await queryAnthropic(sqlPrompt);
+  }
+  if (!generatedSql) generatedSql = '';
 
   if (!generatedSql) return { columns: [], values: [], sql: '', rowCount: 0, error: 'No LLM available. Run Ollama locally (`ollama run phi3:mini`) or set ANTHROPIC_API_KEY.' };
 

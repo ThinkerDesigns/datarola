@@ -21,8 +21,16 @@ export function SettingsView() {
   const [alertsEnabled, setAlertsEnabled] = useState(false);
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
   const [saved, setSaved] = useState(false);
+  const [testingKey, setTestingKey] = useState(false);
+  const [keyResult, setKeyResult] = useState<'ok' | 'err' | null>(null);
+  const [devMode, setDevMode] = useState(false);
   const { user } = useAuth();
   const dataSources = useDataSources(user?.uid ?? null);
+
+  // Detect dev mode — if firebaseAuth is null, we're using fake accounts
+  useEffect(() => {
+    setDevMode(!auth);
+  }, []);
 
   // Read user profile from Firestore — overrides localStorage defaults
   useEffect(() => {
@@ -43,6 +51,28 @@ export function SettingsView() {
       });
     }
   }, [user]);
+
+  // Test Anthropic API key — send minimal prompt, report result
+  const testApiKey = async () => {
+    if (!anthropicApiKey) return;
+    setTestingKey(true);
+    try {
+      const res = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'x-api-key': anthropicApiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'claude-sonnet-4-5-20250514', max_tokens: 10, messages: [{ role: 'user', content: 'Hi' }] }),
+      });
+      if (res.ok) {
+        setKeyResult('ok');
+      } else {
+        setKeyResult('err');
+      }
+    } catch {
+      setKeyResult('err');
+    } finally {
+      setTestingKey(false);
+    }
+  };
 
   const handleSaveSettings = async () => {
     if (!user || !db) return;
@@ -81,6 +111,9 @@ export function SettingsView() {
       <div>
         <h1 className="text-xl font-semibold text-white">Settings</h1>
         <p className="mt-0.5 text-sm text-slate-400">Model provider, alerts, and account options.</p>
+        {devMode && (
+          <p className="mt-2 text-xs text-amber-400 bg-amber-400/10 inline-block rounded-md px-2 py-1">⚠ Dev mode active — using local mock accounts (Firebase not configured)</p>
+        )}
       </div>
 
       {/* Model Provider */}
@@ -116,6 +149,13 @@ export function SettingsView() {
           <input type="password" value={anthropicApiKey} onChange={(e) => setAnthropicApiKey(e.target.value)}
             placeholder="sk-ant-..."
             className="w-full rounded-lg border border-white/10 bg-transparent px-3 py-2 text-sm text-white outline-none focus:border-brand-500/50 placeholder:text-slate-600" />
+          <div className="mt-1.5 flex items-center gap-2">
+            <button onClick={testApiKey} disabled={testingKey || !anthropicApiKey}
+              className={`text-xs px-2.5 py-1 rounded-md transition-colors ${testingKey ? 'bg-slate-700 text-slate-400' : keyResult === 'ok' ? 'bg-green-600/20 text-green-400' : keyResult === 'err' ? 'bg-red-600/20 text-red-400' : 'bg-white/[0.04] text-slate-400 hover:bg-white/[0.07] hover:text-white'}`}
+            >{testingKey ? 'Testing…' : keyResult === 'ok' ? '✓ Valid' : keyResult === 'err' ? '✗ Invalid' : 'Test Key'}</button>
+            {keyResult === 'ok' && <span className="text-xs text-green-500/70">Connection successful</span>}
+            {keyResult === 'err' && <span className="text-xs text-red-500/70">Invalid or expired key</span>}
+          </div>
         </div>
       </div>
 

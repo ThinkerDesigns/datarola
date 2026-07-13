@@ -61,7 +61,7 @@ export async function syncSource(uid: string, dsId: string, providerConfig: Reco
       case 'postgresql':
       case 'mysql':
       case 'redshift':
-        throw new Error('SQL database sync requires a Firebase Function. Connect via the connector extension.');
+        throw new Error('SQL database connectors (PostgreSQL, MySQL, Redshift) are not yet implemented. Use Google Sheets or CSV upload for now.');
       default:
         throw new Error(`Unknown connector type: ${providerConfig.type}`);
     }

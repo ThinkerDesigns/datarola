@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase';
 import { useAuth } from '@/lib/auth-context';
-import { createCheckoutSession } from '@/lib/stripe';
+import { createCheckoutSession, getCustomerPortalUrl } from '@/lib/stripe';
 
 export default function BillingPage() {
   const [loading, setLoading] = useState(false);
@@ -12,6 +12,7 @@ export default function BillingPage() {
   const [plan, setPlan] = useState<'free' | 'pro'>('free');
 
   const { user } = useAuth();
+  const [portalUrl, setPortalUrl] = useState('');
 
   useEffect(() => {
     if (user && db) {
@@ -20,6 +21,20 @@ export default function BillingPage() {
       });
     }
   }, [user]);
+
+  const handlePortal = async () => {
+    setError('');
+    setLoading(true);
+    try {
+      if (!user) throw new Error('Not authenticated');
+      const { url } = await getCustomerPortalUrl(user.uid);
+      window.location.href = url;
+    } catch {
+      setError('Could not open billing portal. Try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleUpgrade = async () => {
     setError('');
@@ -96,7 +111,7 @@ export default function BillingPage() {
           </button>
         ) : (
           <div className="rounded-lg border border-emerald-500/20 bg-emerald-500/8 px-4 py-3 text-center">
-            <p className="text-sm text-emerald-300">You're on Pro. Manage your subscription in the <a href="#" className="underline">Stripe portal</a>.</p>
+            <p className="text-sm text-emerald-300">You're on Pro. Manage your subscription in the <button onClick={handlePortal} disabled={loading} className="underline disabled:opacity-50">billing portal</button>.</p>
           </div>
         )}
 

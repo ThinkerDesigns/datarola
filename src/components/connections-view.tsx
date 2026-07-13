@@ -64,9 +64,17 @@ export function ConnectionsView() {
     name: ds.name,
     type: ds.type,
     status: ds.status as ConnectionStatus,
-    lastSync: 'just now',
+    lastSync: ds.updatedAt ? formatTimeAgo(ds.updatedAt) : 'never',
     rows: ds.rowCount ? `~${ds.rowCount.toLocaleString()}` : '~0',
   }));
+
+  function formatTimeAgo(ts: number): string {
+    const diff = Date.now() - ts;
+    if (diff < 60_000) return 'just now';
+    if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+    return `${Math.floor(diff / 86_400_000)}d ago`;
+  }
 
   const allAvailable: ConnectorType[] = ['airtable', 'bigquery', 'snowflake', 'postgresql', 'mysql', 'redshift'];
 

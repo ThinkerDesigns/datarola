@@ -26,6 +26,8 @@ export function DashboardView({ restoreQuery }: DashboardViewProps) {
   );
 
   const hasNumericData = connected.length > 0 && chartData.length > 0;
+  const syncing = sources.filter((s) => s.status === 'syncing');
+  const errors = sources.filter((s) => s.status === 'error');
 
   return (
     <div className="space-y-6 max-w-6xl">
@@ -47,6 +49,19 @@ export function DashboardView({ restoreQuery }: DashboardViewProps) {
           )}
         </p>
       </div>
+
+      {/* Connection health */}
+      {errors.length > 0 && (
+        <div className="rounded-lg border border-red-500/20 bg-red-500/8 px-4 py-3 text-xs text-red-300">
+          {errors.map((s) => s.name).join(', ')} — connection failed. Reconnect in Data Sources.
+        </div>
+      )}
+      {syncing.length > 0 && (
+        <div className="flex items-center gap-2 rounded-lg border border-brand-500/20 bg-brand-500/8 px-4 py-3 text-xs text-brand-300">
+          <span className="h-2 w-2 animate-spin rounded-full border-[1.5px] border-b-transparent border-t-brand-300" />
+          Syncing {syncing.length} source{syncing.length > 1 ? 's' : ''}…
+        </div>
+      )}
 
       {/* KPI row */}
       <div className="grid gap-4 sm:grid-cols-3">

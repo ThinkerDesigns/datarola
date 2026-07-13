@@ -12,6 +12,22 @@ export interface SyncResult {
   rowCount: number;
 }
 
+// ponytail: introspection is supported per connector — google-sheets, airtable, bigquery have schema discovery.
+export interface IntrospectDef {
+  supportsIntrospection: boolean;
+}
+
+export const INTROSPECTORS: Record<ConnectorType, IntrospectDef> = {
+  'google-sheets': { supportsIntrospection: true },
+  'csv-upload': { supportsIntrospection: false },
+  'bigquery': { supportsIntrospection: true },
+  'snowflake': { supportsIntrospection: true },
+  'postgresql': { supportsIntrospection: false },
+  'mysql': { supportsIntrospection: false },
+  'redshift': { supportsIntrospection: false },
+  'airtable': { supportsIntrospection: true },
+};
+
 // Registry of supported connectors (keys match ConnectorType)
 export const CONNECTORS: Record<ConnectorType, ConnectorDef> = {
   'google-sheets': {
