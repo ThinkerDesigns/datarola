@@ -197,6 +197,6 @@ Distributed under the Unlicense License. See `LICENSE.txt` for more information.
 
 ## Contact
 
-Project Link: [github.com/your_username/datarola](#)
+Project Link: [github.com/ThinkerDesigns/datarola](#)
 
 (back to top)
